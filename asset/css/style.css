@@ -55,15 +55,11 @@ h1 {
 
 .grid-3 {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 24px;
+  grid-template-columns: 1.5fr 1fr;
+  column-gap: 50px;
 }
 
-@media (min-width: 1024px) {
-  .grid-3 {
-    grid-template-columns: 2fr 1fr;
-  }
-}
+
 
 .textarea {
   width: 100%;
@@ -74,6 +70,11 @@ h1 {
   color: #e2e8f0;
   font-size: 14px;
   resize: vertical;
+  scrollbar-width: none; 
+  -ms-overflow-style: none;
+}
+.textarea::-webkit-scrollbar {
+  display: none; 
 }
 
 .button-group {
@@ -129,10 +130,18 @@ h1 {
   padding: 14px;
   min-height: 180px;
   max-height: 220px;
-  overflow-y: auto;
+  /* overflow-y: auto; */
   font-family: ui-monospace, monospace;
   font-size: 13px;
+  overflow-y: auto; 
+  scrollbar-width: none; 
+  -ms-overflow-style: none;
 }
+#parsed-ids-list::-webkit-scrollbar {
+  display: none; 
+}
+
+
 
 /* Table */
 table {

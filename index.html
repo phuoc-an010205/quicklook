@@ -24,11 +24,20 @@
       <!-- Input Area -->
       <div class="grid-3">
         <div>
+          <div>
           <label class="label">Dán nhiều link folder (mỗi link 1 dòng)</label>
           <textarea id="folder-links-multiple" class="textarea" rows="5" 
             placeholder="https://drive.google.com/drive/folders/1A8F..."></textarea>
+           </div>
+           <div>
+              <label class="label">IDs đã phân tích</label>
+          <div id="parsed-ids-list"></div>
+        </div>
+        
+        </div>
 
-          <div class="button-group">
+        <!-- Parsed IDs -->
+         <div class="button-group">
             <div style="display:flex; align-items:center; gap:8px;">
               <span style="font-size:14px; color:#cbd5e1;">Ổ đĩa:</span>
               <input id="drive-letter-input" maxlength="1" value="H" class="drive-letter">
@@ -44,13 +53,6 @@
               <span>Chọn thư mục gốc</span>
             </button>
           </div>
-        </div>
-
-        <!-- Parsed IDs -->
-        <div>
-          <label class="label">IDs đã phân tích</label>
-          <div id="parsed-ids-list"></div>
-        </div>
       </div>
     </div>
 
