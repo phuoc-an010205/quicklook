@@ -1,4 +1,4 @@
-// directory.js
+
 // ==================== DIRECTORY OPERATIONS ====================
 
 async function renderDirectoryContents(dirHandle, customDisplayName = null) {

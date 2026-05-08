@@ -13,31 +13,17 @@
   <div class="container">
     
     <!-- Header Card -->
-    <div class="card">
-      <div class="header">
-        <div>
-          <h1>Map Google Drive IDs → Local Folder</h1>
-          <p style="color:#94a3b8; margin:4px 0 0;">Dán link folder Drive, chọn thư mục trên máy và map ID sang folder con (FolderName\ID)</p>
-        </div>
-      </div>
-
-      <!-- Input Area -->
-      <div class="grid-3">
-        <div>
-          <div>
-          <label class="label">Dán nhiều link folder (mỗi link 1 dòng)</label>
+    <section class="card">
+       <h1 class="title-heading">Map Google Drive IDs → Local Folder</h1>
+       <!-- Input Area -->
+      <div class="grid-2">
+        <div class="box-input">
+          <div class="box-input__left">
+          <label class="title-label">Dán nhiều link folder (mỗi link 1 dòng)</label>
           <textarea id="folder-links-multiple" class="textarea" rows="5" 
             placeholder="https://drive.google.com/drive/folders/1A8F..."></textarea>
            </div>
-           <div>
-              <label class="label">IDs đã phân tích</label>
-          <div id="parsed-ids-list"></div>
-        </div>
-        
-        </div>
-
-        <!-- Parsed IDs -->
-         <div class="button-group">
+          <div class="button-group">
             <div style="display:flex; align-items:center; gap:8px;">
               <span style="font-size:14px; color:#cbd5e1;">Ổ đĩa:</span>
               <input id="drive-letter-input" maxlength="1" value="H" class="drive-letter">
@@ -53,11 +39,29 @@
               <span>Chọn thư mục gốc</span>
             </button>
           </div>
+        
+        </div>
+          <!-- <div class="box-input__right">
+              <label class="title-label">IDs đã phân tích</label>
+          <div id="parsed-ids-list">
+               <div>
+                 <h2 id="suggestedPath" >H:\.shortcut-targets-by-id\1sicILRgrN3gtts_Jemx4atyjrQj3ni5u</h2>
+               </div>
+               <div>
+                 <button class="btn">Mở mapped</button>
+                 <button class="btn">Xóa</button>
+               </div>
+
+          </div>
+        </div> -->
+
+        <!-- Parsed IDs -->
+        
       </div>
-    </div>
+    </section>
 
     <!-- Results Table + Image Preview -->
-    <div class="card">
+    <section class="card">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
         <h2 style="margin:0; font-size:20px;">Danh sách Folder đã Map</h2>
         <button id="btn-map-all" class="btn btn-primary" style="padding:8px 16px; font-size:13px;">
@@ -67,35 +71,38 @@
 
       <!-- Table -->
       <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th style="width: 220px;">ID</th>
-              <th style="width: 220px;">Folder Name</th>
-              <th style="width: 120px; text-align:center;">Số lượng ảnh</th>
-              <th style="width: 140px; text-align:center;">Hành động</th>
-            </tr>
-          </thead>
-          <tbody id="shortcuts-table">
-            <!-- JS sẽ render ở đây -->
-          </tbody>
-        </table>
-      </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 220px;">ID</th>
+        <th style="width: 220px;">Folder Name</th>
+        <th style="width: 120px; text-align:center;">Số lượng ảnh</th>
+        <th style="width: 140px; text-align:center;">Hành động</th>
+      </tr>
+    </thead>
+    <tbody id="shortcuts-table">
+      <tr id="preview-row">
+        <td colspan="4" style="padding: 0; border: none;">
+          <section class="section" style="margin-top: 28px;">
+            <div class="section-header">
+              <div>
+                <span class="section-title">Hình ảnh preview</span>
+                <span id="folder-name-display" class="folder-name" style="margin-left:12px;">—</span>
+              </div>
+              <button id="btn-refresh" class="btn btn-secondary" style="padding:6px 14px; font-size:13px;">
+                <i class="fa-solid fa-sync"></i> Refresh
+              </button>
+            </div>
+            <div id="image-grid" class="image-grid"></div>
+          </section> 
+        </td>
+      </tr>
+    </tbody>
+  </table>
+     </div>
 
-      <!-- Image Preview Section -->
-      <div class="section" style="margin-top: 28px;">
-        <div class="section-header">
-          <div>
-            <span class="section-title">Hình ảnh preview</span>
-            <span id="folder-name-display" class="folder-name" style="margin-left:12px;">—</span>
-          </div>
-          <button id="btn-refresh" class="btn btn-secondary" style="padding:6px 14px; font-size:13px;">
-            <i class="fa-solid fa-sync"></i> Refresh
-          </button>
-        </div>
-        <div id="image-grid" class="image-grid"></div>
-      </div>
-    </div>
+      
+    </section>
 
   </div>
 

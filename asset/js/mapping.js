@@ -80,6 +80,9 @@ async function mapAllParsedIds() {
     return;
   }
 
+  // Lấy tên ổ đĩa (mặc định là H nếu không nhập)
+  const driveLetter = (document.getElementById('drive-letter-input') || {}).value || 'H';
+  
   mappedFolders = [];
   let shortcutDir = null;
   try {
@@ -87,53 +90,148 @@ async function mapAllParsedIds() {
   } catch (e) {}
 
   for (const id of windowParsedDriveIds) {
-    let imageCount = 0;
+    let finalImageCount = 0;
+    let finalFolderName = id; 
+    let fullPath = `${driveLetter}:\\.shortcut-targets-by-id\\${id}`; // Đường dẫn mặc định
+
     if (shortcutDir) {
       try {
         const target = await shortcutDir.getDirectoryHandle(id, { create: false });
+        
+        const subfolders = [];
+        let rootImagesCount = 0;
+
+        // Quét thư mục gốc của ID
         for await (const [name, entry] of target.entries()) {
-          if (entry.kind === 'file' && isImageFileName(name)) imageCount++;
+          if (entry.kind === 'directory') {
+            subfolders.push({ name: name, handle: entry });
+          } else if (entry.kind === 'file' && isImageFileName(name)) {
+            rootImagesCount++;
+          }
         }
-      } catch (e) {}
+
+        // Nếu phát hiện có thư mục con, tự động đào sâu vào thư mục con đầu tiên để đếm ảnh
+        if (subfolders.length > 0) {
+          finalFolderName = subfolders[0].name;
+          fullPath += `\\${finalFolderName}`; // Cộng thêm tên thư mục con vào đường dẫn
+          
+          try {
+            const subHandle = subfolders[0].handle;
+            let subImageCount = 0;
+            // Đếm ảnh bên trong folder con
+            for await (const [subName, subEntry] of subHandle.entries()) {
+              if (subEntry.kind === 'file' && isImageFileName(subName)) {
+                subImageCount++;
+              }
+            }
+            finalImageCount = rootImagesCount + subImageCount; // Tổng ảnh gốc + ảnh trong folder con
+          } catch(e) {}
+        } else {
+          // Nếu không có folder con
+          finalFolderName = target.name;
+          finalImageCount = rootImagesCount;
+        }
+
+      } catch (e) {
+        console.log("Lỗi không đọc được ID:", id);
+      }
     }
 
-    mappedFolders.push({ id, name: id, imageCount });
+    mappedFolders.push({ 
+      id: id, 
+      name: finalFolderName, 
+      imageCount: finalImageCount,
+      fullPath: fullPath // Lưu lại đường dẫn để lát copy
+    });
   }
 
-  renderMappedTable();
+  renderMappedTable(mappedFolders);
   showToast(`Đã map ${mappedFolders.length} ID`, 'success');
 }
 
-function renderMappedTable() {
+// function renderMappedTable() {
+//   const tbody = document.getElementById('shortcuts-table');
+//   tbody.innerHTML = '';
+
+//   if (mappedFolders.length === 0) {
+//     tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:30px;color:#64748b;">Chưa có folder nào được map</td></tr>`;
+//     return;
+//   }
+
+//   // Đã sửa lại việc gọi item.id thay vì sf.id cho an toàn (hoặc dùng sf cho cả vòng lặp)
+//   mappedFolders.forEach(sf => { 
+//     const row = document.createElement('tr');
+//     row.innerHTML = `
+//       <td style="font-family:monospace;color:#60a5fa;">${sf.id}</td>
+//       <td style="font-family:monospace; color:#e2e8f0;">
+//         ${sf.name}
+//       </td>
+//       <td style="text-align:center;">
+//         <span style="background:#166534;color:#86efac;padding:2px 10px;border-radius:999px;font-size:12px;">
+//           ${sf.imageCount || 0} ảnh
+//         </span>
+//       </td>
+//       <td style="text-align:center;">
+//         <button onclick="window.showImagesFromRootForId('${sf.id}')" 
+//                 style="background:#166534;color:white;border:none;padding:6px 14px;border-radius:8px;font-size:13px;cursor:pointer;">
+//           Xem ảnh
+//         </button>
+//       </td>
+//     `;
+//     tbody.appendChild(row);
+//   });
+// }
+// Hàm phụ trợ giúp copy đường dẫn
+window.copyToExplorer = function(path) {
+  navigator.clipboard.writeText(path).then(() => {
+    showToast('Đã copy đường dẫn! Mở This PC và dán (Ctrl+V) để vào folder.', 'success');
+  }).catch(err => {
+    showToast('Lỗi khi copy đường dẫn', 'error');
+  });
+};
+
+function renderMappedTable(dataList) {
+  if (!dataList || !Array.isArray(dataList)) return; 
+
   const tbody = document.getElementById('shortcuts-table');
-  tbody.innerHTML = '';
+  const previewRow = document.getElementById('preview-row');
 
-  if (mappedFolders.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:30px;color:#64748b;">Chưa có folder nào được map</td></tr>`;
-    return;
-  }
+  const oldRows = tbody.querySelectorAll('tr:not(#preview-row)');
+  oldRows.forEach(row => row.remove());
 
-  // Đã sửa lại việc gọi item.id thay vì sf.id cho an toàn (hoặc dùng sf cho cả vòng lặp)
-  mappedFolders.forEach(sf => { 
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td style="font-family:monospace;color:#60a5fa;">${sf.id}</td>
-      <td style="font-family:monospace; color:#e2e8f0;">
-        ${sf.name}
+  dataList.forEach(data => {
+    const tr = document.createElement('tr');
+    
+    // Xử lý escape dấu \ trong đường dẫn Windows để không bị lỗi JS
+    const safePath = data.fullPath.replace(/\\/g, '\\\\');
+
+    tr.innerHTML = `
+      <td style="font-family:monospace; color:#60a5fa;">
+        ${data.id}
+      </td>
+      <td style="font-family:monospace; color:#e2e8f0; font-weight: 500;">
+        <a href="" onclick="event.preventDefault(); copyToExplorer('${safePath}')" 
+           style="color: #34d399; text-decoration: underline; text-decoration-style: dashed; text-underline-offset: 4px; cursor: pointer; transition: color 0.2s;"
+           onmouseover="this.style.color='#10b981'" 
+           onmouseout="this.style.color='#34d399'"
+           title="Click để Copy đường dẫn tới thư mục này">
+          <i class="fa-regular fa-copy" style="margin-right: 4px;"></i>${data.name}
+        </a>
       </td>
       <td style="text-align:center;">
-        <span style="background:#166534;color:#86efac;padding:2px 10px;border-radius:999px;font-size:12px;">
-          ${sf.imageCount || 0} ảnh
+        <span style="background:#166534;color:#86efac;padding:4px 12px;border-radius:999px;font-size:12px; font-weight: bold;">
+          ${data.imageCount} ảnh
         </span>
       </td>
       <td style="text-align:center;">
-        <button onclick="window.showImagesFromRootForId('${sf.id}')" 
-                style="background:#166534;color:white;border:none;padding:6px 14px;border-radius:8px;font-size:13px;cursor:pointer;">
-          Xem ảnh
-        </button>
+         <button onclick="window.showImagesFromRootForId('${data.id}')" 
+                 style="background:#10b981;color:white;border:none;padding:6px 14px;border-radius:8px;font-size:13px;cursor:pointer;">
+            <i class="fa-solid fa-eye"></i> Xem ảnh
+         </button>
       </td>
     `;
-    tbody.appendChild(row);
+    
+    tbody.insertBefore(tr, previewRow); 
   });
 }
 
