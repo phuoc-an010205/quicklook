@@ -100,16 +100,16 @@ async function renderDirectoryContents(dirHandle, customDisplayName = null) {
     imageSection.appendChild(header);
 
     const grid = document.createElement('div');
-    grid.style.cssText = 'display:grid; grid-template-columns: repeat(4, 1fr); gap:20px; padding:20px; background:#020617; border-radius:20px; border:1px solid #334155; justify-content:flex-start;';
+    grid.style.cssText = 'display:grid; grid-template-columns: repeat(3, 1fr); gap:20px; padding:20px; background:#020617; border-radius:20px; border:1px solid #334155; justify-content:flex-start;';
     
     images.forEach((img) => {
       const card = document.createElement('div');
-      card.style.cssText = 'width:250px; height:200px; position:relative; border-radius:12px; overflow:hidden; background:#1e2937; cursor:pointer; box-shadow:0 4px 6px rgb(0 0 0 / 0.1);';
+      card.style.cssText = 'width:350px; height:300px; position:relative; border-radius:12px; overflow:hidden; background:#1e2937; cursor:pointer; box-shadow:0 4px 6px rgb(0 0 0 / 0.1);';
       
       card.innerHTML = `
         <img src="${img.url}" 
              alt="${img.name}" 
-             style="width:250px; height:200px; object-fit: cover; transition: transform 0.3s ease;">
+             style="width:250px; display:block;margin-left:auto;margin-right: auto;; transition: transform 0.3s ease;">
         
         <div style="position:absolute; bottom:0; left:0; right:0; background:linear-gradient(to top, rgba(0,0,0,0.7), transparent); padding:8px 10px; display:flex; justify-content:space-between; align-items:center;">
           <span style="font-size:11px; color:#e2e8f0; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:65%;">${img.name}</span>
