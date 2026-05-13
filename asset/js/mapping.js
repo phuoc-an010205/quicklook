@@ -1,4 +1,3 @@
-// mapping.js
 // ==================== PARSE & MAPPING DATA ====================
 
 function parseDriveLinks() {
@@ -53,7 +52,7 @@ function displayParsedIds(ids) {
         <div class="text-[10px] text-slate-400">${suggestedPath}</div>
       </div>
       <div class="flex items-center gap-2">
-        <button class="text-xs px-2 py-1 bg-slate-800/40 rounded" onclick="window.showImagesFromRootForId('${id}')">Mở mapped</button>
+        <button class="text-xs px-2 py-1 bg-slate-800/40 rounded" onclick="window.showImagesInline(null, '${id}')">Mở mapped</button>
         <button class="text-xs px-2 py-1 bg-rose-700/30 rounded" onclick="window.removeParsedId('${id}')">Xóa</button>
       </div>
     `;
@@ -70,6 +69,7 @@ function removeParsedId(id) {
   parseDriveLinks();
 }
 
+// ==================== MAP TẤT CẢ ID + fullPrettyPath ====================
 async function mapAllParsedIds() {
   if (!windowParsedDriveIds || windowParsedDriveIds.length === 0) {
     showToast('Vui lòng phân tích link trước', 'error');
@@ -80,7 +80,6 @@ async function mapAllParsedIds() {
     return;
   }
 
-  // Lấy tên ổ đĩa (mặc định là H nếu không nhập)
   const driveLetter = (document.getElementById('drive-letter-input') || {}).value || 'H';
   
   mappedFolders = [];
@@ -91,8 +90,9 @@ async function mapAllParsedIds() {
 
   for (const id of windowParsedDriveIds) {
     let finalImageCount = 0;
-    let finalFolderName = id; 
-    let fullPath = `${driveLetter}:\\.shortcut-targets-by-id\\${id}`; // Đường dẫn mặc định
+    let finalFolderName = id;
+    let fullPath = `${driveLetter}:\\.shortcut-targets-by-id\\${id}`;
+    let fullPrettyPath = fullPath; // fullPrettyPath mặc định
 
     if (shortcutDir) {
       try {
@@ -101,7 +101,6 @@ async function mapAllParsedIds() {
         const subfolders = [];
         let rootImagesCount = 0;
 
-        // Quét thư mục gốc của ID
         for await (const [name, entry] of target.entries()) {
           if (entry.kind === 'directory') {
             subfolders.push({ name: name, handle: entry });
@@ -110,24 +109,22 @@ async function mapAllParsedIds() {
           }
         }
 
-        // Nếu phát hiện có thư mục con, tự động đào sâu vào thư mục con đầu tiên để đếm ảnh
         if (subfolders.length > 0) {
           finalFolderName = subfolders[0].name;
-          fullPath += `\\${finalFolderName}`; // Cộng thêm tên thư mục con vào đường dẫn
+          fullPath += `\\${finalFolderName}`;
+          fullPrettyPath = `${driveLetter}:\\.shortcut-targets-by-id\\${id}\\${finalFolderName}`;
           
           try {
             const subHandle = subfolders[0].handle;
             let subImageCount = 0;
-            // Đếm ảnh bên trong folder con
             for await (const [subName, subEntry] of subHandle.entries()) {
               if (subEntry.kind === 'file' && isImageFileName(subName)) {
                 subImageCount++;
               }
             }
-            finalImageCount = rootImagesCount + subImageCount; // Tổng ảnh gốc + ảnh trong folder con
+            finalImageCount = rootImagesCount + subImageCount;
           } catch(e) {}
         } else {
-          // Nếu không có folder con
           finalFolderName = target.name;
           finalImageCount = rootImagesCount;
         }
@@ -141,7 +138,8 @@ async function mapAllParsedIds() {
       id: id, 
       name: finalFolderName, 
       imageCount: finalImageCount,
-      fullPath: fullPath // Lưu lại đường dẫn để lát copy
+      fullPath: fullPath,
+      fullPrettyPath: fullPrettyPath   // ← ĐÃ THÊM THEO YÊU CẦU
     });
   }
 
@@ -149,72 +147,32 @@ async function mapAllParsedIds() {
   showToast(`Đã map ${mappedFolders.length} ID`, 'success');
 }
 
-// function renderMappedTable() {
-//   const tbody = document.getElementById('shortcuts-table');
-//   tbody.innerHTML = '';
-
-//   if (mappedFolders.length === 0) {
-//     tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:30px;color:#64748b;">Chưa có folder nào được map</td></tr>`;
-//     return;
-//   }
-
-//   // Đã sửa lại việc gọi item.id thay vì sf.id cho an toàn (hoặc dùng sf cho cả vòng lặp)
-//   mappedFolders.forEach(sf => { 
-//     const row = document.createElement('tr');
-//     row.innerHTML = `
-//       <td style="font-family:monospace;color:#60a5fa;">${sf.id}</td>
-//       <td style="font-family:monospace; color:#e2e8f0;">
-//         ${sf.name}
-//       </td>
-//       <td style="text-align:center;">
-//         <span style="background:#166534;color:#86efac;padding:2px 10px;border-radius:999px;font-size:12px;">
-//           ${sf.imageCount || 0} ảnh
-//         </span>
-//       </td>
-//       <td style="text-align:center;">
-//         <button onclick="window.showImagesFromRootForId('${sf.id}')" 
-//                 style="background:#166534;color:white;border:none;padding:6px 14px;border-radius:8px;font-size:13px;cursor:pointer;">
-//           Xem ảnh
-//         </button>
-//       </td>
-//     `;
-//     tbody.appendChild(row);
-//   });
-// }
-// Hàm phụ trợ giúp copy đường dẫn
-window.copyToExplorer = function(path) {
-  navigator.clipboard.writeText(path).then(() => {
-    showToast('Đã copy đường dẫn! Mở This PC và dán (Ctrl+V) để vào folder.', 'success');
-  }).catch(err => {
-    showToast('Lỗi khi copy đường dẫn', 'error');
-  });
-};
+// ==================== RENDER BẢNG + PREVIEW INLINE ====================
 
 function renderMappedTable(dataList) {
-  if (!dataList || !Array.isArray(dataList)) return; 
+  if (!dataList || !Array.isArray(dataList)) return;
 
   const tbody = document.getElementById('shortcuts-table');
-  const previewRow = document.getElementById('preview-row');
+  tbody.innerHTML = '';
 
-  const oldRows = tbody.querySelectorAll('tr:not(#preview-row)');
-  oldRows.forEach(row => row.remove());
+  if (dataList.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:40px;color:#64748b;">Chưa có folder nào được map</td></tr>`;
+    return;
+  }
 
   dataList.forEach(data => {
     const tr = document.createElement('tr');
+    tr.dataset.id = data.id;
     
-    // Xử lý escape dấu \ trong đường dẫn Windows để không bị lỗi JS
-    const safePath = data.fullPath.replace(/\\/g, '\\\\');
+    const safePath = (data.fullPrettyPath || data.fullPath).replace(/\\/g, '\\\\');
 
     tr.innerHTML = `
-      <td style="font-family:monospace; color:#60a5fa;">
-        ${data.id}
-      </td>
+      <td style="font-family:monospace; color:#60a5fa;">${data.id}</td>
       <td style="font-family:monospace; color:#e2e8f0; font-weight: 500;">
         <a href="" onclick="event.preventDefault(); copyToExplorer('${safePath}')" 
-           style="color: #34d399; text-decoration: underline; text-decoration-style: dashed; text-underline-offset: 4px; cursor: pointer; transition: color 0.2s;"
+           style="color: #34d399; text-decoration: underline; text-decoration-style: dashed; text-underline-offset: 4px; cursor: pointer;"
            onmouseover="this.style.color='#10b981'" 
-           onmouseout="this.style.color='#34d399'"
-           title="Click để Copy đường dẫn tới thư mục này">
+           onmouseout="this.style.color='#34d399'">
           <i class="fa-regular fa-copy" style="margin-right: 4px;"></i>${data.name}
         </a>
       </td>
@@ -224,22 +182,172 @@ function renderMappedTable(dataList) {
         </span>
       </td>
       <td style="text-align:center;">
-         <button onclick="window.showImagesFromRootForId('${data.id}')" 
-                 style="background:#10b981;color:white;border:none;padding:6px 14px;border-radius:8px;font-size:13px;cursor:pointer;">
-            <i class="fa-solid fa-eye"></i> Xem ảnh
-         </button>
-      </td>
+   <button onclick="window.showImagesInline(this.closest('tr'), '${data.id}', '${(data.fullPrettyPath || data.fullPath || data.id).replace(/\\/g, '\\\\')}')" 
+           style="background:#10b981;color:white;border:none;padding:6px 14px;border-radius:8px;font-size:13px;cursor:pointer;">
+      <i class="fa-solid fa-eye"></i> Xem ảnh
+   </button>
+   </td>
     `;
-    
-    tbody.insertBefore(tr, previewRow); 
+    tbody.appendChild(tr);
   });
 }
 
-// ==================== XUẤT HÀM RA TOÀN CỤC (GLOBAL) ====================
-// Đoạn này cực kỳ quan trọng để main.js và các nút HTML có thể gọi được các hàm này
-window.renderDirectoryContents = renderDirectoryContents;
-window.drillIntoSubfolder = drillIntoSubfolder;
-window.goBackOneLevel = goBackOneLevel;
-window.showImagesFromRootForId = showImagesFromRootForId;
-window.pickRootDir = pickRootDir;
-window.refreshCurrentImages = refreshCurrentImages;
+// ==================== HIỂN THỊ ẢNH INLINE (KHÔNG DRILL) ====================
+
+window.showImagesInline = async function(clickedRow, id, fullPrettyPath = null) {
+  // Đóng tất cả preview đang mở
+  document.querySelectorAll('.preview-inline-row').forEach(r => r.remove());
+
+  const tbody = document.getElementById('shortcuts-table');
+  const previewTr = document.createElement('tr');
+  previewTr.className = 'preview-inline-row';
+  previewTr.style.background = '#0f172a';
+
+  // Hiển thị fullPrettyPath nếu có, nếu không thì fallback về ID
+  const titleText = fullPrettyPath 
+    ? `Preview ảnh — ${fullPrettyPath}` 
+    : `Preview ảnh — ID: ${id}`;
+
+  previewTr.innerHTML = `
+    <td colspan="4" style="padding:0; border:none;">
+      <div style="padding:20px 16px 24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <span style="font-weight:600; color:#e2e8f0; font-size:15px;">${titleText}</span>
+          <button onclick="this.closest('.preview-inline-row').remove()" 
+                  class="btn btn-secondary" style="padding:5px 14px; font-size:13px;">
+            <i class="fa-solid fa-times"></i> Đóng
+          </button>
+        </div>
+        <div id="image-grid-${id}" class="image-grid"></div>
+      </div>
+    </td>
+  `;
+
+  if (clickedRow) {
+    clickedRow.after(previewTr);
+  } else {
+    tbody.appendChild(previewTr);
+  }
+
+  await loadImagesToGrid(id, `image-grid-${id}`);
+};
+
+async function loadImagesToGrid(id, gridId) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+
+  grid.innerHTML = `<div style="text-align:center; padding:60px 20px; color:#64748b;">
+    <i class="fa-solid fa-spinner fa-spin"></i><br>Đang tải ảnh...
+  </div>`;
+
+  if (!rootDirHandle) {
+    grid.innerHTML = `<div style="text-align:center; padding:60px; color:#f87171;">Chưa chọn thư mục gốc!</div>`;
+    return;
+  }
+
+  try {
+    const shortcutDir = await rootDirHandle.getDirectoryHandle('.shortcut-targets-by-id', { create: false });
+    const idDir = await shortcutDir.getDirectoryHandle(id, { create: false });
+
+    let targetDir = idDir;
+    let targetName = id;
+    let images = [];
+
+    // === GIỐNG HỆT LOGIC ĐẾM ẢNH TRONG mapAllParsedIds ===
+    const subfolders = [];
+    let rootImagesCount = 0;
+
+    for await (const [name, entry] of idDir.entries()) {
+      if (entry.kind === 'directory') {
+        subfolders.push({ name, handle: entry });
+      } else if (entry.kind === 'file' && isImageFileName(name)) {
+        rootImagesCount++;
+        images.push({ name, handle: entry });   // backup root images
+      }
+    }
+
+    // Nếu có thư mục con → vào thư mục con đầu tiên (đây là nơi có ảnh thật)
+    if (subfolders.length > 0) {
+      targetDir = subfolders[0].handle;
+      targetName = subfolders[0].name;
+      console.log(`[DEBUG] Tự động vào subfolder: ${targetName}`);
+
+      // Load ảnh từ subfolder
+      images = [];
+      for await (const [name, entry] of targetDir.entries()) {
+        if (entry.kind === 'file' && isImageFileName(name)) {
+          images.push({ name, handle: entry });
+        }
+      }
+    }
+
+    // Fallback: nếu subfolder không có ảnh thì lấy ảnh ở root
+    if (images.length === 0 && rootImagesCount > 0) {
+      images = []; // reset
+      for await (const [name, entry] of idDir.entries()) {
+        if (entry.kind === 'file' && isImageFileName(name)) {
+          images.push({ name, handle: entry });
+        }
+      }
+    }
+
+    if (images.length === 0) {
+      grid.innerHTML = `<div style="text-align:center; padding:60px; color:#f87171;">
+        Không tìm thấy ảnh nào.<br>
+        <small>Đã kiểm tra cả folder ID và subfolder con đầu tiên.</small><br>
+        <span style="font-size:13px">Số ảnh được đếm: ${rootImagesCount} (có thể ảnh nằm sâu hơn 1 cấp)</span>
+      </div>`;
+      return;
+    }
+
+    // === Render ảnh ===
+    grid.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+
+    for (const img of images.slice(0, 30)) {
+      const div = document.createElement('div');
+      div.className = 'image-item';
+      div.innerHTML = `
+        <img src="" alt="${img.name}" loading="lazy" style="width:100%; height:100%; object-fit:cover; border-radius:6px; cursor:pointer;">
+        <div class="image-name">${img.name}</div>
+      `;
+
+      img.handle.getFile().then(file => {
+        const url = URL.createObjectURL(file);
+        const imgEl = div.querySelector('img');
+        imgEl.src = url;
+        imgEl.onclick = () => previewFullImage(url);
+      }).catch(e => console.log("Lỗi load:", img.name));
+
+      fragment.appendChild(div);
+    }
+
+    grid.appendChild(fragment);
+
+  } catch (e) {
+    console.error("loadImagesToGrid error:", e);
+    grid.innerHTML = `<div style="color:#f87171; padding:40px; text-align:center;">
+      Không thể truy cập folder ID: ${id}<br>
+      <small>${e.message || e}</small>
+    </div>`;
+  }
+}
+window.previewFullImage = function(url) {
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:99999;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML = `
+    <img src="${url}" style="max-width:92%; max-height:92vh; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.6);">
+    <button onclick="this.parentElement.remove()" style="position:absolute;top:30px;right:30px;background:#fff;color:#111;width:50px;height:50px;border-radius:50%;font-size:28px;border:none;cursor:pointer;">×</button>
+  `;
+  document.body.appendChild(modal);
+};
+
+// ==================== EXPORT GLOBAL ====================
+window.parseDriveLinks = parseDriveLinks;
+window.mapAllParsedIds = mapAllParsedIds;
+window.removeParsedId = removeParsedId;
+window.renderMappedTable = renderMappedTable;
+window.showImagesInline = window.showImagesInline;
+window.copyToExplorer = window.copyToExplorer || function(path) {
+  navigator.clipboard.writeText(path).then(() => showToast('Đã copy đường dẫn!', 'success'));
+};
