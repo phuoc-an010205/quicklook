@@ -27,9 +27,9 @@ window.onload = function() {
     btnRefresh.addEventListener('click', refreshCurrentImages);
   }
 };
-window.renderDirectoryContents = renderDirectoryContents;
-window.drillIntoSubfolder = drillIntoSubfolder;
-window.goBackOneLevel = goBackOneLevel;
-window.showImagesFromRootForId = showImagesFromRootForId;
+// window.renderDirectoryContents = renderDirectoryContents;
+// window.drillIntoSubfolder = drillIntoSubfolder;
+  // window.goBackOneLevel = goBackOneLevel;
+// window.showImagesFromRootForId = showImagesFromRootForId;
 window.pickRootDir = pickRootDir;
-window.refreshCurrentImages = refreshCurrentImages;
+// window.refreshCurrentImages = refreshCurrentImages;

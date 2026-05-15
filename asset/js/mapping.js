@@ -139,7 +139,7 @@ async function mapAllParsedIds() {
       name: finalFolderName, 
       imageCount: finalImageCount,
       fullPath: fullPath,
-      fullPrettyPath: fullPrettyPath   // ← ĐÃ THÊM THEO YÊU CẦU
+      fullPrettyPath: fullPrettyPath  
     });
   }
 
