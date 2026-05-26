@@ -143,13 +143,17 @@ async function mapAllParsedIds() {
     });
   }
 
-  renderMappedTable(mappedFolders);
+  // renderMappedTable is kept for backward compatibility but is now a no-op
+  // because the table UI was removed (see md.md bug report + user request for compact UI).
+  // All image display is handled by the bulk preview system below.
+  if (typeof renderMappedTable === 'function') {
+    renderMappedTable(mappedFolders); // safe - it early-returns when table element is absent
+  }
+
   showToast(`Đã map ${mappedFolders.length} ID`, 'success');
 
-  // === NEW: Auto-load image previews for ALL mapped IDs (no click required) ===
-  // This satisfies the request: images from every Drive link appear immediately.
+  // Auto-load image previews for ALL mapped IDs (the main current UI)
   if (typeof window.renderAllPreviewsBulk === 'function') {
-    // Expose current data for reload button / console
     window.mappedFolders = mappedFolders;
     window.renderAllPreviewsBulk(mappedFolders).catch(err => {
       console.error('Bulk preview failed:', err);
@@ -214,9 +218,18 @@ async function resolveImageSource(id) {
 // ==================== RENDER BẢNG + PREVIEW INLINE ====================
 
 function renderMappedTable(dataList) {
-  if (!dataList || !Array.isArray(dataList)) return;
+  // Defensive programming: early return if no data or table element removed
+  if (!dataList || !Array.isArray(dataList)) {
+    return;
+  }
 
   const tbody = document.getElementById('shortcuts-table');
+  if (!tbody) {
+    // Table no longer exists in the simplified UI (removed per user request).
+    // All image display now happens via renderAllPreviewsBulk.
+    return;
+  }
+
   tbody.innerHTML = '';
 
   if (dataList.length === 0) {
