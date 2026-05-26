@@ -277,7 +277,13 @@ tr:hover {
   cursor: pointer;
 }
 
-/* ==================== BULK IMAGE GALLERY (AUTO PREVIEW) ==================== */
+/* ==================== BULK IMAGE GALLERY (AUTO PREVIEW) - SAFE RENDERING ==================== */
+.all-previews,
+.gallery-group {
+  overflow: hidden; /* prevent spillover/duplicates on re-render or scroll */
+  position: relative;
+}
+
 .gallery-group {
   background: #0b1324;
   border: 1px solid #1e2937;
@@ -295,6 +301,8 @@ tr:hover {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   gap: 10px;
+  scroll-behavior: smooth; /* smooth scroll when programmatically controlling */
+  overflow: hidden;
 }
 
 .all-previews .image-item {
@@ -302,7 +310,7 @@ tr:hover {
   border-radius: 10px;
   overflow: hidden;
   background: #1e2937;
-  position: relative;
+  position: relative; /* for absolute children + safe stacking */
 }
 
 .all-previews .image-item img {
@@ -310,17 +318,22 @@ tr:hover {
   height: 100%;
   object-fit: cover;
   transition: transform 0.2s ease;
+  display: block; /* prevent inline gaps */
 }
 
 .all-previews .image-item:hover img {
   transform: scale(1.06);
 }
 
-.all-previews .image-item .image-name {
+.all-previews .image-item .image-name,
+.all-previews .image-item .placeholder {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
+}
+
+.all-previews .image-item .image-name {
   padding: 4px 8px;
   font-size: 11px;
   background: linear-gradient(to top, rgba(0,0,0,0.75), transparent);
@@ -344,4 +357,10 @@ tr:hover {
 .image-item.skeleton .image-name {
   color: #475569;
   font-size: 11px;
+}
+
+/* Extra safety for preview / thumbnail areas to avoid overlap on fast scroll or repeated renders */
+.image-grid,
+.all-previews {
+  contain: layout style; /* modern containment to reduce reflow surprises */
 }
