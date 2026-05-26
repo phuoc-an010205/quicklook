@@ -421,6 +421,15 @@ window.previewFullImage = function(url) {
 
 // ==================== BULK AUTO PREVIEW (ROBUST + LIGHTWEIGHT) ====================
 
+// Simple debounce to prevent rapid repeated renders on scroll or button spam (upload/reload)
+function debounce(fn, delay = 150) {
+  let timer;
+  return function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
 // Concurrency limiter (prevents too many simultaneous getFile calls)
 function createSemaphore(maxConcurrent) {
   let active = 0;
@@ -448,8 +457,17 @@ window.renderAllPreviewsBulk = async function(dataList) {
   const container = document.getElementById('all-previews-container');
   if (!container) return;
 
-  container.innerHTML = '';
-  if (!dataList || dataList.length === 0) return;
+  // Defensive: cleanup previous observer to prevent duplicate loads / memory leaks on re-render (scroll, reload, "upload")
+  if (allPreviewsObserver) {
+    // Unobserve any existing image items in this container
+    container.querySelectorAll('.image-item').forEach(el => allPreviewsObserver.unobserve(el));
+    // For simplicity in this app, we recreate observer on heavy re-renders (or disconnect if we stored it)
+  }
+
+  // Always clear old DOM before new render to prevent duplicates, overlaps, stacking
+  container.replaceChildren(); // modern clear (or container.innerHTML = '' for older browsers)
+
+  if (!dataList || !Array.isArray(dataList) || dataList.length === 0) return;
 
   for (const item of dataList) {
     const gallery = await createGalleryForId(item);
@@ -507,11 +525,16 @@ async function createGalleryForId(item) {
   }
 
   // Create ONE stable card per real image handle
+  // Use DocumentFragment for batch DOM insert → avoids multiple reflows when rendering many thumbnails
+  const fragment = document.createDocumentFragment();
+
   imageHandles.forEach((handle, index) => {
     const card = document.createElement('div');
     card.className = 'image-item';
     card.dataset.loaded = 'false';
     card.dataset.index = index;
+    // Stable key for precise updates / avoiding duplicates on re-render
+    card.dataset.key = `${item.id}-${index}`;
 
     // Stable structure: placeholder + hidden img
     card.innerHTML = `
@@ -532,8 +555,10 @@ async function createGalleryForId(item) {
       if (img.src) window.previewFullImage(img.src);
     };
 
-    grid.appendChild(card);
+    fragment.appendChild(card);
   });
+
+  grid.appendChild(fragment);
 
   wrap.appendChild(header);
   wrap.appendChild(grid);
@@ -603,18 +628,20 @@ async function loadImageIntoCard(card, fileHandle) {
   });
 }
 
-// Reload button handler (exposed globally)
-window.reloadAllPreviews = async function() {
+// Reload button handler (exposed globally) - debounced to avoid rapid re-renders on scroll or repeated clicks
+const debouncedReload = debounce(async function() {
   const container = document.getElementById('all-previews-container');
   if (!container || !window.mappedFolders || window.mappedFolders.length === 0) {
     showToast('Chưa có dữ liệu để tải lại', 'error');
     return;
   }
   showToast('Đang tải lại ảnh...', 'info');
-  container.innerHTML = '';
+  // Clear is already handled inside renderAllPreviewsBulk with replaceChildren + observer cleanup
   await window.renderAllPreviewsBulk(window.mappedFolders);
   showToast('Đã tải lại ảnh', 'success');
-};
+});
+
+window.reloadAllPreviews = debouncedReload;
 
 // ==================== EXPORT GLOBAL ====================
 window.parseDriveLinks = parseDriveLinks;
