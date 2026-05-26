@@ -603,8 +603,18 @@ function setupLazyLoadingForGrid(grid) {
 }
 
 async function loadImageIntoCard(card, fileHandle) {
+  if (!card || !fileHandle) {
+    console.warn('[media] loadImageIntoCard called with invalid card or fileHandle');
+    return;
+  }
+
   const placeholder = card.querySelector('.placeholder');
   const img = card.querySelector('img');
+
+  if (!placeholder || !img) {
+    console.warn('[media] Missing placeholder or img element in card');
+    return;
+  }
 
   await imageLoadSemaphore(async () => {
     try {
@@ -623,7 +633,10 @@ async function loadImageIntoCard(card, fileHandle) {
       // Keep the blob URL alive for fast scroll-back (no reload, no black)
       // We intentionally do NOT revoke here.
     } catch (e) {
-      placeholder.innerHTML = `<span style="color:#f87171;font-size:11px;">Lỗi tải</span>`;
+      if (placeholder) {
+        placeholder.innerHTML = `<span style="color:#f87171;font-size:11px;">Lỗi tải</span>`;
+      }
+      console.warn('[media] Image load failed for handle:', e);
     }
   });
 }
