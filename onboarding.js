@@ -14,10 +14,19 @@
   // Minimal safe API that old code might expect
   window.Onboarding = window.Onboarding || {};
 
-  // Safe no-op for getImageNode (the exact error in md.md)
-  window.Onboarding.getImageNode = function() {
-    console.warn('[onboarding.js stub] getImageNode() called on non-existent onboarding module. Returning null.');
-    return null;
+  // Safe no-op for getImageNode (addresses md.md: TypeError reading 'getImageNode' on undefined)
+  // Always defensive: check for P/item before any access in real onboarding code.
+  window.Onboarding.getImageNode = function(P, item) {
+    if (!P || typeof P.getImageNode !== 'function' || !item) {
+      console.warn('[onboarding.js stub] getImageNode() called with invalid P or item. Returning null defensively.');
+      return null;
+    }
+    try {
+      return P.getImageNode(item);
+    } catch (e) {
+      console.warn('[onboarding.js stub] getImageNode error:', e);
+      return null;
+    }
   };
 
   // Additional defensive methods
