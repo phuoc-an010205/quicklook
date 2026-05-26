@@ -39,9 +39,12 @@ window.onload = function() {
     });
   }
 };
-window.renderDirectoryContents = renderDirectoryContents;
-window.drillIntoSubfolder = drillIntoSubfolder;
-window.goBackOneLevel = goBackOneLevel;
-window.showImagesFromRootForId = showImagesFromRootForId;
-window.pickRootDir = pickRootDir;
-window.refreshCurrentImages = refreshCurrentImages;
+// Legacy directory functions no longer defined in this simplified version.
+// The following lines were causing ReferenceError and have been removed:
+// window.renderDirectoryContents = renderDirectoryContents;
+// window.drillIntoSubfolder = drillIntoSubfolder;
+// window.goBackOneLevel = goBackOneLevel;
+// window.showImagesFromRootForId = showImagesFromRootForId;
+// window.refreshCurrentImages = refreshCurrentImages;
+
+// pickRootDir and refreshCurrentImages are still referenced via event listeners above (guarded).
