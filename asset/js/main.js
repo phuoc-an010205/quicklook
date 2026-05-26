@@ -21,10 +21,22 @@ window.onload = function() {
     btnMapAll.addEventListener('click', mapAllParsedIds);
   }
 
-  // 4. Nút Refresh
+  // 4. Nút Refresh (legacy)
   const btnRefresh = document.getElementById('btn-refresh');
   if (btnRefresh) {
     btnRefresh.addEventListener('click', refreshCurrentImages);
+  }
+
+  // 5. NEW: Nút Tải lại tất cả ảnh (bulk previews)
+  const btnReloadPreviews = document.getElementById('btn-reload-previews');
+  if (btnReloadPreviews) {
+    btnReloadPreviews.addEventListener('click', () => {
+      if (typeof window.reloadAllPreviews === 'function') {
+        window.reloadAllPreviews();
+      } else {
+        console.warn('reloadAllPreviews not available yet');
+      }
+    });
   }
 };
 window.renderDirectoryContents = renderDirectoryContents;

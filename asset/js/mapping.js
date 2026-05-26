@@ -145,6 +145,70 @@ async function mapAllParsedIds() {
 
   renderMappedTable(mappedFolders);
   showToast(`Đã map ${mappedFolders.length} ID`, 'success');
+
+  // === NEW: Auto-load image previews for ALL mapped IDs (no click required) ===
+  // This satisfies the request: images from every Drive link appear immediately.
+  if (typeof window.renderAllPreviewsBulk === 'function') {
+    // Expose current data for reload button / console
+    window.mappedFolders = mappedFolders;
+    window.renderAllPreviewsBulk(mappedFolders).catch(err => {
+      console.error('Bulk preview failed:', err);
+    });
+  }
+}
+
+// ==================== CENTRALIZED IMAGE SOURCE RESOLUTION ====================
+/**
+ * Resolve the correct directory handle that actually contains the images for a Drive ID.
+ * Mirrors the exact logic previously duplicated in mapAllParsedIds and loadImagesToGrid:
+ * - If the ID folder has subfolders, use the first subfolder (typical Drive shortcut structure).
+ * - Otherwise use the ID folder root.
+ *
+ * Returns data needed for both counting (already done) and lazy display.
+ */
+async function resolveImageSource(id) {
+  if (!rootDirHandle) {
+    throw new Error('Chưa chọn thư mục gốc');
+  }
+
+  const shortcutDir = await rootDirHandle.getDirectoryHandle('.shortcut-targets-by-id', { create: false });
+  const idDir = await shortcutDir.getDirectoryHandle(id, { create: false });
+
+  // Scan for immediate subfolders + root-level images
+  const subfolders = [];
+  const rootImages = [];
+
+  for await (const [name, entry] of idDir.entries()) {
+    if (entry.kind === 'directory') {
+      subfolders.push({ name, handle: entry });
+    } else if (entry.kind === 'file' && isImageFileName(name)) {
+      rootImages.push(entry);
+    }
+  }
+
+  if (subfolders.length > 0) {
+    const firstSub = subfolders[0];
+    const subImages = [];
+    for await (const [name, entry] of firstSub.handle.entries()) {
+      if (entry.kind === 'file' && isImageFileName(name)) {
+        subImages.push(entry);
+      }
+    }
+    return {
+      targetDirHandle: firstSub.handle,
+      displayName: firstSub.name,
+      imageHandles: subImages,
+      source: 'subfolder'
+    };
+  }
+
+  // No subfolder → images are directly in the ID folder
+  return {
+    targetDirHandle: idDir,
+    displayName: id,
+    imageHandles: rootImages,
+    source: 'root'
+  };
 }
 
 // ==================== RENDER BẢNG + PREVIEW INLINE ====================
@@ -340,6 +404,224 @@ window.previewFullImage = function(url) {
     <button onclick="this.parentElement.remove()" style="position:absolute;top:30px;right:30px;background:#fff;color:#111;width:50px;height:50px;border-radius:50%;font-size:28px;border:none;cursor:pointer;">×</button>
   `;
   document.body.appendChild(modal);
+};
+
+// ==================== BULK AUTO PREVIEW (LIGHTWEIGHT + FAST) ====================
+
+// Simple concurrency limiter for getFile() + ObjectURL creation
+function createSemaphore(maxConcurrent) {
+  let active = 0;
+  const queue = [];
+  const next = () => {
+    if (queue.length === 0 || active >= maxConcurrent) return;
+    active++;
+    const fn = queue.shift();
+    fn().finally(() => {
+      active--;
+      next();
+    });
+  };
+  return (fn) => new Promise((resolve, reject) => {
+    queue.push(() => fn().then(resolve).catch(reject));
+    next();
+  });
+}
+
+const imageLoadSemaphore = createSemaphore(6); // tune: 4-8 is usually sweet spot for local FS
+
+let allPreviewsObserver = null;
+
+/**
+ * Main entry: automatically render image galleries for every mapped item.
+ * Called after a successful mapAllParsedIds.
+ */
+window.renderAllPreviewsBulk = async function(dataList) {
+  const container = document.getElementById('all-previews-container');
+  if (!container) {
+    console.warn('[Previews] #all-previews-container not found in DOM');
+    return;
+  }
+
+  container.innerHTML = '';
+  if (!dataList || dataList.length === 0) return;
+
+  // Update total count badge if present
+  const countEl = document.getElementById('total-images-count');
+  if (countEl) {
+    const total = dataList.reduce((sum, d) => sum + (d.imageCount || 0), 0);
+    countEl.textContent = total;
+  }
+
+  // Create one gallery per mapped ID (skeletons first for instant UI)
+  for (const item of dataList) {
+    const gallery = createGalleryShell(item);
+    container.appendChild(gallery);
+
+    // Kick off lazy loading for this gallery (non-blocking)
+    loadGalleryImagesLazily(gallery, item).catch(e => {
+      console.warn('Lazy load failed for', item.id, e);
+    });
+  }
+};
+
+function createGalleryShell(item) {
+  const wrap = document.createElement('div');
+  wrap.className = 'gallery-group';
+  wrap.dataset.id = item.id;
+
+  const header = document.createElement('div');
+  header.className = 'gallery-header';
+  header.innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+      <span style="font-family:monospace; color:#60a5fa; font-size:13px;">${item.id}</span>
+      <span style="color:#e2e8f0; font-weight:600;">${item.name}</span>
+      <span style="background:#166534;color:#86efac;padding:2px 10px;border-radius:999px;font-size:12px; font-weight:bold;">
+        ${item.imageCount || 0} ảnh
+      </span>
+      <span class="gallery-status" style="color:#64748b; font-size:12px;">Đang tải...</span>
+    </div>
+    <div style="margin-top:4px; font-size:11px; color:#64748b; font-family:monospace; word-break:break-all;">
+      ${item.fullPrettyPath || item.fullPath || ''}
+    </div>
+  `;
+
+  const grid = document.createElement('div');
+  grid.className = 'image-grid';
+  grid.dataset.id = item.id;
+
+  // Create skeleton cards immediately (instant perceived performance)
+  const count = Math.min(item.imageCount || 24, 400); // cap skeletons for extreme cases
+  for (let i = 0; i < count; i++) {
+    const sk = document.createElement('div');
+    sk.className = 'image-item skeleton';
+    sk.innerHTML = `
+      <div style="width:100%;height:100%;background:#1e2937;border-radius:6px;"></div>
+      <div class="image-name" style="color:#64748b;">Đang tải...</div>
+    `;
+    grid.appendChild(sk);
+  }
+
+  if ((item.imageCount || 0) === 0) {
+    grid.innerHTML = `<div style="padding:40px;color:#64748b;text-align:center;width:100%;">Không có ảnh</div>`;
+  }
+
+  wrap.appendChild(header);
+  wrap.appendChild(grid);
+  return wrap;
+}
+
+async function loadGalleryImagesLazily(galleryEl, item) {
+  const grid = galleryEl.querySelector('.image-grid');
+  const statusEl = galleryEl.querySelector('.gallery-status');
+  if (!grid) return;
+
+  let imageHandles;
+  try {
+    const src = await resolveImageSource(item.id);
+    imageHandles = src.imageHandles || [];
+  } catch (e) {
+    if (statusEl) statusEl.textContent = 'Lỗi truy cập';
+    grid.innerHTML = `<div style="color:#f87171;padding:30px;text-align:center;">Không thể đọc thư mục: ${e.message || e}</div>`;
+    return;
+  }
+
+  if (imageHandles.length === 0) {
+    if (statusEl) statusEl.textContent = '0 ảnh';
+    return;
+  }
+
+  if (statusEl) statusEl.textContent = `Đang tải ${imageHandles.length} ảnh...`;
+
+  // Prepare real cards (we will swap skeletons)
+  const skeletons = Array.from(grid.querySelectorAll('.image-item.skeleton'));
+  const realCount = imageHandles.length;
+
+  // If we created fewer skeletons than actual files, add the missing ones (progressive)
+  while (skeletons.length < realCount && skeletons.length < 500) {
+    const sk = document.createElement('div');
+    sk.className = 'image-item skeleton';
+    sk.innerHTML = `
+      <div style="width:100%;height:100%;background:#1e2937;border-radius:6px;"></div>
+      <div class="image-name" style="color:#64748b;">Đang tải...</div>
+    `;
+    grid.appendChild(sk);
+    skeletons.push(sk);
+  }
+
+  // Set up (or reuse) the observer
+  if (!allPreviewsObserver) {
+    allPreviewsObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const card = entry.target;
+          allPreviewsObserver.unobserve(card);
+          const handle = card._fileHandle;
+          if (handle) {
+            loadSingleImageCard(card, handle);
+          }
+        }
+      });
+    }, {
+      rootMargin: '300px 0px', // start loading a bit before visible
+      threshold: 0.01
+    });
+  }
+
+  // Attach handles to skeletons and start observing
+  imageHandles.forEach((handle, idx) => {
+    const card = skeletons[idx];
+    if (!card) return;
+    card._fileHandle = handle;
+    // Give each card a filename hint if possible (we don't have the name yet without getFile, so keep generic or fetch tiny metadata later)
+    allPreviewsObserver.observe(card);
+  });
+
+  if (statusEl) {
+    statusEl.textContent = `Sẵn sàng (${realCount} ảnh)`;
+  }
+}
+
+async function loadSingleImageCard(card, fileHandle) {
+  // Use semaphore so we don't hammer the disk with hundreds of getFile() at once
+  await imageLoadSemaphore(async () => {
+    try {
+      const file = await fileHandle.getFile();
+      const url = URL.createObjectURL(file);
+
+      // Replace skeleton content
+      card.classList.remove('skeleton');
+      card.innerHTML = `
+        <img src="${url}" alt="${file.name}" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:6px;cursor:pointer;">
+        <div class="image-name">${file.name}</div>
+      `;
+
+      const img = card.querySelector('img');
+      img.onclick = () => window.previewFullImage(url);
+
+      // Optional: revoke when the card is no longer visible for a long time (memory hygiene)
+      // For simplicity we keep the URL for the lifetime of the page in v1.
+      // Advanced: attach a second observer that revokes after leaving viewport for 30s.
+    } catch (e) {
+      card.innerHTML = `
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#1e2937;color:#f87171;font-size:12px;">
+          Lỗi tải
+        </div>
+        <div class="image-name" style="color:#64748b;">${fileHandle.name || 'ảnh'}</div>
+      `;
+    }
+  });
+}
+
+// Convenience: allow manual reload from console or future button
+window.reloadAllPreviews = async function() {
+  const container = document.getElementById('all-previews-container');
+  if (!container || !window.mappedFolders || !window.mappedFolders.length) {
+    showToast('Chưa có dữ liệu để tải lại', 'error');
+    return;
+  }
+  showToast('Đang tải lại ảnh...', 'info');
+  await window.renderAllPreviewsBulk(window.mappedFolders);
+  showToast('Đã tải lại ảnh', 'success');
 };
 
 // ==================== EXPORT GLOBAL ====================

@@ -85,6 +85,20 @@
   </table>
      </div>
 
+      <!-- NEW: Auto-loaded image previews for ALL mapped Drive links -->
+      <div id="all-previews-section" style="margin-top: 24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <h3 style="margin:0; font-size:16px; color:#e2e8f0;">
+            Tất cả ảnh đã map 
+            <span id="total-images-count" style="color:#86efac; font-weight:700;">0</span>
+          </h3>
+          <button id="btn-reload-previews" class="btn btn-secondary" style="padding:6px 14px; font-size:12px; height:auto; width:auto;">
+            <i class="fa-solid fa-sync"></i> <span>Tải lại ảnh</span>
+          </button>
+        </div>
+        <div id="all-previews-container" class="all-previews"
+             style="display:flex; flex-direction:column; gap:28px;"></div>
+      </div>
       
     </section>
 
