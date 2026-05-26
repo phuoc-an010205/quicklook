@@ -60,46 +60,23 @@
       </div>
     </section>
 
-    <!-- Results Table + Image Preview -->
+    <!-- Results: Compact toolbar + automatic image grid -->
     <section class="card">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-        <h2 style="margin:0; font-size:20px;">Danh sách Folder đã Map</h2>
-        <button id="btn-map-all" class="btn btn-primary" style="padding:8px 16px; font-size:13px;">
-          <i class="fa-solid fa-link"></i> Map tất cả ID
-        </button>
-      </div>
-
-      <!-- Table -->
-      <div class="table-container">
-  <table>
-    <thead>
-      <tr>
-        <th style="width: 220px;">ID</th>
-        <th style="width: 220px;">Folder Name</th>
-        <th style="width: 120px; text-align:center;">Số lượng ảnh</th>
-        <th style="width: 140px; text-align:center;">Hành động</th>
-      </tr>
-    </thead>
-    <tbody id="shortcuts-table">
-    </tbody>
-  </table>
-     </div>
-
-      <!-- NEW: Auto-loaded image previews for ALL mapped Drive links -->
-      <div id="all-previews-section" style="margin-top: 24px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-          <h3 style="margin:0; font-size:16px; color:#e2e8f0;">
-            Tất cả ảnh đã map 
-            <span id="total-images-count" style="color:#86efac; font-weight:700;">0</span>
-          </h3>
-          <button id="btn-reload-previews" class="btn btn-secondary" style="padding:6px 14px; font-size:12px; height:auto; width:auto;">
-            <i class="fa-solid fa-sync"></i> <span>Tải lại ảnh</span>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+        <h2 style="margin:0; font-size:18px;">Ảnh đã map</h2>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button id="btn-map-all" class="btn btn-primary" style="padding:8px 16px; font-size:13px;">
+            <i class="fa-solid fa-link"></i> Map tất cả ID
+          </button>
+          <button id="btn-reload-previews" class="btn btn-secondary" style="padding:8px 16px; font-size:13px;">
+            <i class="fa-solid fa-sync"></i> Tải lại ảnh
           </button>
         </div>
-        <div id="all-previews-container" class="all-previews"
-             style="display:flex; flex-direction:column; gap:28px;"></div>
       </div>
-      
+
+      <!-- Automatic full image grid for ALL mapped Drive links -->
+      <div id="all-previews-container" class="all-previews"
+           style="display:flex; flex-direction:column; gap:20px;"></div>
     </section>
 
   </div>
