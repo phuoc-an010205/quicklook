@@ -33,4 +33,13 @@ window.onload = function() {
     });
   }
 };
+<<<<<<< HEAD:src/renderer/js/main.js
 // pickRootDir vẫn được tham chiếu qua event listener ở trên (đã được bảo vệ).
+=======
+// window.renderDirectoryContents = renderDirectoryContents;
+// window.drillIntoSubfolder = drillIntoSubfolder;
+  // window.goBackOneLevel = goBackOneLevel;
+// window.showImagesFromRootForId = showImagesFromRootForId;
+window.pickRootDir = pickRootDir;
+// window.refreshCurrentImages = refreshCurrentImages;
+>>>>>>> 9feead06405b325b276b010e43e9cc80294f2b2d:asset/js/main.js
