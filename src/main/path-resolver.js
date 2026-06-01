@@ -158,7 +158,7 @@ async function resolveIdToRealFolder(driveRoot, id) {
 // Hàm hỗ trợ kiểm tra đuôi file ảnh (cùng logic với renderer)
 function isImageFile(filename) {
   const ext = path.extname(filename).toLowerCase();
-  return ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'].includes(ext);
+  return ['.jpg','.psd' ,'.jpeg', '.png', '.webp', '.gif', '.bmp'].includes(ext);
 }
 
 module.exports = {

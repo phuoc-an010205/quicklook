@@ -73,7 +73,7 @@ ipcMain.handle('fs:list-images-in-folder', async (event, folderPath) => {
     for (const entry of entries) {
       if (entry.isFile()) {
         const ext = path.extname(entry.name).toLowerCase();
-        if (['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'].includes(ext)) {
+        if (['.jpg','.psd' ,'.jpeg', '.png', '.webp', '.gif', '.bmp'].includes(ext)) {
           images.push(path.join(folderPath, entry.name));
         }
       }
