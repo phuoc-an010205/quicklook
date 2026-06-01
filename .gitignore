@@ -37,3 +37,6 @@ Thumbs.db
 # Misc
 .env
 .env.local
+
+# Accidental nested project copies
+quicklook/
