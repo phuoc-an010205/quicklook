@@ -1,0 +1,46 @@
+appId: com.quicklook.driveidmapper
+productName: QuickLook
+directories:
+  output: dist
+
+files:
+  - src/**/*
+  - assets/**/*
+  - package.json
+
+win:
+  target:
+    - target: portable
+      arch:
+        - x64
+    - target: nsis
+      arch:
+        - x64
+  # icon: assets/icons/icon.ico   # Bỏ comment dòng này sau khi bạn có file icon.ico thật
+
+  # Tắt yêu cầu code signing (rất quan trọng cho build nội bộ trên Windows)
+  # Tránh lỗi "Cannot create symbolic link" khi extract winCodeSign
+  forceCodeSigning: false
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+portable:
+  artifactName: ${productName}-Portable-${version}.${ext}
+
+extraResources: []
+
+asar: true
+
+# Sharp là native module → phải unpack ra khỏi asar, nếu không app sẽ crash trên máy người dùng
+asarUnpack:
+  - "**/node_modules/sharp/**"
+
+# Đảm bảo sharp được rebuild đúng cách khi build
+npmRebuild: true
+
+# Tùy chọn: nén tốt hơn
+compression: maximum

@@ -1,0 +1,30 @@
+{
+  "name": "quicklook",
+  "version": "0.1.0",
+  "productName": "QuickLook",
+  "description": "Standalone desktop app to map Google Drive folder IDs to local images (Google Drive for Desktop shortcuts). No browser or Node.js installation required for end users.",
+  "main": "src/main/main.js",
+  "author": "QuickLook",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "build": "electron-builder",
+    "dist": "electron-builder --win",
+    "dist:portable": "electron-builder --win portable",
+    "dist:installer": "electron-builder --win nsis",
+    "clean": "rimraf dist",
+    "build:internal": "node scripts/build-internal.js"
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0",
+    "fs-extra": "^11.2.0",
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "electron": "^29.3.0",
+    "electron-builder": "^24.13.3",
+    "rimraf": "^5.0.7"
+  }
+}

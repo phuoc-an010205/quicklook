@@ -9,6 +9,53 @@
   --pink: pink;
 }
 * { box-sizing: border-box; }
+
+/* ==================== TOAST / NOTIFICATION (FIXED OVERLAY — NO LAYOUT SHIFT) ==================== */
+#toast-container {
+  position: fixed !important;
+  top: 16px;
+  right: 16px;
+  z-index: 999999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none; /* allow clicking through empty area */
+}
+
+#toast-container > div {
+  pointer-events: auto; /* toasts themselves are clickable */
+  max-width: 320px;
+}
+
+/* Toast visual styling (replaces previous Tailwind utility hacks) */
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 9999px;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+  font-size: 14px;
+  border: 1px solid;
+}
+
+.toast-success {
+  background: #166534;
+  border-color: #4ade80;
+  color: #dcfce7;
+}
+
+.toast-error {
+  background: #9f1239;
+  border-color: #fda4af;
+  color: #fee2e2;
+}
+
+.toast-info {
+  background: #1e40af;
+  border-color: #93c5fd;
+  color: #dbeafe;
+}
 body {
   margin: 0;
   padding: 24px;
@@ -129,24 +176,6 @@ body {
   font-weight: bold;
 }
 
-#parsed-ids-list {
-  background: #020617;
-  border: 1px solid #334155;
-  border-radius: 14px;
-  padding: 14px;
-  min-height: 180px;
-  max-height: 220px;
-  /* overflow-y: auto; */
-  font-family: ui-monospace, monospace;
-  font-size: 13px;
-  overflow-y: auto; 
-  scrollbar-width: none; 
-  -ms-overflow-style: none;
-}
-#parsed-ids-list::-webkit-scrollbar {
-  display: none; 
-}
-
 .info-item {
   display: flex;
   align-items: center;
@@ -243,11 +272,11 @@ tr:hover {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s ease;
+  transition: none; /* Bỏ hiệu ứng hover */
 }
 
 .image-item:hover img {
-  transform: scale(1.1);
+  transform: none;
 }
 
 .image-item .overlay {
@@ -310,19 +339,23 @@ tr:hover {
   border-radius: 10px;
   overflow: hidden;
   background: #1e2937;
-  position: relative; /* for absolute children + safe stacking */
+  position: relative;
+  cursor: pointer;
 }
 
 .all-previews .image-item img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.2s ease;
-  display: block; /* prevent inline gaps */
+  display: block;
+  transition: none; /* Bỏ hiệu ứng hover */
 }
 
+/* Bỏ hoàn toàn hiệu ứng hover và click visual */
 .all-previews .image-item:hover img {
-  transform: scale(1.06);
+  transform: none;
+  filter: none;
+  box-shadow: none;
 }
 
 .all-previews .image-item .image-name,

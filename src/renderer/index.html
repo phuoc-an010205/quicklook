@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Map Google Drive IDs → Local Folder</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" href="./asset/css/style.css">
+  <link rel="stylesheet" href="./styles/style.css">
+  <!-- <link rel="stylesheet" href="./styles/reset.css"> -->
+
 </head>
 <body>
   <div id="toast-container"></div>
@@ -41,22 +43,6 @@
           </div>
         
         </div>
-          <!-- <div class="box-input__right">
-              <label class="title-label">IDs đã phân tích</label>
-          <div id="parsed-ids-list">
-               <div>
-                 <h2 id="suggestedPath" >H:\.shortcut-targets-by-id\1sicILRgrN3gtts_Jemx4atyjrQj3ni5u</h2>
-               </div>
-               <div>
-                 <button class="btn">Mở mapped</button>
-                 <button class="btn">Xóa</button>
-               </div>
-
-          </div>
-        </div> -->
-
-        <!-- Parsed IDs -->
-        
       </div>
     </section>
 
@@ -82,10 +68,33 @@
   </div>
 
  
-  <script src="./asset/js/state.js"></script>
-  <script src="./asset/js/utils.js"></script>
-  <script src="./asset/js/directory.js"></script>
-  <script src="./asset/js/mapping.js"></script>
-  <script src="./asset/js/main.js"></script>
+  <script src="./js/state.js"></script>
+  <script src="./js/utils.js"></script>
+  <script src="./js/directory.js"></script>
+  <script src="./js/mapping.js"></script>
+  <script src="./js/main.js"></script>
+
+  <!-- Desktop mode detection (Phase 1) -->
+  <script>
+    (function() {
+      if (window.electronAPI) {
+        // Đang chạy trong ứng dụng desktop Electron
+        document.body.classList.add('desktop-mode');
+
+        // Tùy chọn: hiển thị badge nhỏ ở phần tiêu đề
+        const title = document.querySelector('.title-heading');
+        if (title) {
+          const badge = document.createElement('span');
+          badge.style.cssText = 'font-size:12px; background:#166534; color:#86efac; padding:2px 8px; border-radius:999px; margin-left:12px; vertical-align:middle;';
+          badge.textContent = 'DESKTOP';
+          title.appendChild(badge);
+        }
+
+        // Sau này có thể expose thêm API ở đây (mở folder native, v.v.)
+        console.log('%c[QuickLook] Running in Electron desktop mode', 'color:#34d399');
+      }
+    })();
+  </script>
+
 </body>
 </html>

@@ -1,0 +1,46 @@
+name: Build QuickLook (Windows)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:   # Cho phép build thủ công từ GitHub
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Portable EXE
+        run: npm run dist:portable
+        env:
+          # electron-builder cần biến này trên CI đôi khi
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuickLook-Portable
+          path: dist/*.exe
+          retention-days: 30
+
+      - name: Create Release (optional)
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: QuickLook Build ${{ github.run_number }}
+          draft: true
+          files: dist/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

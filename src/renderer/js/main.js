@@ -21,30 +21,16 @@ window.onload = function() {
     btnMapAll.addEventListener('click', mapAllParsedIds);
   }
 
-  // 4. Nút Refresh (legacy)
-  const btnRefresh = document.getElementById('btn-refresh');
-  if (btnRefresh) {
-    btnRefresh.addEventListener('click', refreshCurrentImages);
-  }
-
-  // 5. NEW: Nút Tải lại tất cả ảnh (bulk previews)
+  // 4. Nút Tải lại tất cả ảnh (bulk previews)
   const btnReloadPreviews = document.getElementById('btn-reload-previews');
   if (btnReloadPreviews) {
     btnReloadPreviews.addEventListener('click', () => {
       if (typeof window.reloadAllPreviews === 'function') {
         window.reloadAllPreviews();
       } else {
-        console.warn('reloadAllPreviews not available yet');
+        console.warn('reloadAllPreviews chưa sẵn sàng');
       }
     });
   }
 };
-// Legacy directory functions no longer defined in this simplified version.
-// The following lines were causing ReferenceError and have been removed:
-// window.renderDirectoryContents = renderDirectoryContents;
-// window.drillIntoSubfolder = drillIntoSubfolder;
-// window.goBackOneLevel = goBackOneLevel;
-// window.showImagesFromRootForId = showImagesFromRootForId;
-// window.refreshCurrentImages = refreshCurrentImages;
-
-// pickRootDir and refreshCurrentImages are still referenced via event listeners above (guarded).
+// pickRootDir vẫn được tham chiếu qua event listener ở trên (đã được bảo vệ).

@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Runtime cache (thumbnails)
+cache/
+thumbs/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Electron / packaging
+*.exe
+*.app
+*.dmg
+*.deb
+*.rpm
+*.snap
+*.msi
+*.nupkg
+*.asar
+
+# Misc
+.env
+.env.local
