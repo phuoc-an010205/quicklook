@@ -11,6 +11,7 @@ const path = require('path');
  */
 
 const COMMON_DRIVE_LETTERS = ['G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P'];
+const ALL_DRIVE_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 /**
  * Kiểm tra xem một đường dẫn tuyệt đối có chứa thư mục shortcut Google Drive không.
@@ -33,6 +34,55 @@ async function hasShortcutTargets(rootPath) {
  * 
  * Trả về đường dẫn gốc hợp lệ đầu tiên (ví dụ: "H:\\") hoặc null.
  */
+/**
+ * Chuẩn hóa chữ cái ổ đĩa người dùng nhập → một ký tự A-Z hoặc null.
+ */
+function normalizeDriveLetter(letter) {
+  if (!letter) return null;
+  const m = String(letter).trim().toUpperCase().match(/^([A-Z])/);
+  return m ? m[1] : null;
+}
+
+/**
+ * Kiểm tra một chữ cái ổ đĩa cụ thể (ví dụ "H" → "H:\\").
+ * Không quét các ổ khác — dùng khi người dùng chọn ổ trong UI.
+ */
+async function resolveDriveRootFromLetter(letter) {
+  const normalized = normalizeDriveLetter(letter);
+  if (!normalized) {
+    return { valid: false, error: 'Vui lòng nhập một chữ cái ổ đĩa hợp lệ (A-Z).' };
+  }
+
+  const rootPath = `${normalized}:\\`;
+  const isValid = await hasShortcutTargets(rootPath);
+  if (isValid) {
+    return { valid: true, rootPath };
+  }
+
+  return {
+    valid: false,
+    error: `Ổ ${normalized}: không tìm thấy Google Drive (.shortcut-targets-by-id). Kiểm tra lại chữ cái ổ hoặc tài khoản Drive đã mount.`
+  };
+}
+
+/**
+ * Liệt kê tất cả ổ (A-Z) đang có mount Google Drive shortcut.
+ */
+async function listAllGoogleDriveRoots() {
+  const found = [];
+  for (const letter of ALL_DRIVE_LETTERS) {
+    const candidate = `${letter}:\\`;
+    try {
+      if (await hasShortcutTargets(candidate)) {
+        found.push(candidate);
+      }
+    } catch (e) {
+      // ổ không tồn tại — bỏ qua
+    }
+  }
+  return found;
+}
+
 async function findGoogleDriveShortcutRoot() {
   for (const letter of COMMON_DRIVE_LETTERS) {
     const candidate = `${letter}:\\`;
@@ -163,6 +213,9 @@ function isImageFile(filename) {
 
 module.exports = {
   findGoogleDriveShortcutRoot,
+  resolveDriveRootFromLetter,
+  listAllGoogleDriveRoots,
+  normalizeDriveLetter,
   validateDriveRoot,
   hasShortcutTargets,
   listAllShortcutIds,

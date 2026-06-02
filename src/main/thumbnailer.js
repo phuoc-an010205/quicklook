@@ -3,6 +3,7 @@ const fs = require('fs-extra');
 const path = require('path');
 const crypto = require('crypto');
 const { app } = require('electron');
+const psdThumbnail = require('./psd-thumbnail');
 
 /**
  * Lấy đường dẫn thư mục cache an toàn (hoạt động cả dev lẫn production sau khi pack ASAR).
@@ -77,6 +78,80 @@ function getThumbnailPath(cacheKey) {
   return path.join(CACHE_DIR, `${cacheKey}.webp`);
 }
 
+/** Icon PSD mặc định khi convert lỗi (cache một lần) */
+let psdPlaceholderPath = null;
+
+const PSD_PLACEHOLDER_SVG = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320">
+  <rect width="320" height="320" fill="#1e293b"/>
+  <rect x="48" y="56" width="224" height="208" rx="16" fill="#334155" stroke="#64748b" stroke-width="4"/>
+  <text x="160" y="175" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="52" font-weight="700" fill="#94a3b8">PSD</text>
+  <text x="160" y="215" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="14" fill="#64748b">Không xem được preview</text>
+</svg>`;
+
+async function getPsdPlaceholderThumbnail() {
+  if (psdPlaceholderPath && await fs.pathExists(psdPlaceholderPath)) {
+    return psdPlaceholderPath;
+  }
+
+  ensureCacheDir();
+  psdPlaceholderPath = path.join(CACHE_DIR, '__psd_placeholder__.webp');
+  if (!(await fs.pathExists(psdPlaceholderPath))) {
+    await sharp(Buffer.from(PSD_PLACEHOLDER_SVG))
+      .resize(320, 320, { fit: 'contain', background: { r: 30, g: 41, b: 59, alpha: 1 } })
+      .webp({ quality: 80 })
+      .toFile(psdPlaceholderPath);
+  }
+  return psdPlaceholderPath;
+}
+
+async function createThumbnailFromPngBuffer(pngBuffer, thumbPath) {
+  await sharp(pngBuffer)
+    .resize(320, 320, {
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .webp({ quality: 82, effort: 4 })
+    .toFile(thumbPath);
+}
+
+async function getOrCreatePsdThumbnail(fullImagePath) {
+  const cacheKey = await generateCacheKey(fullImagePath);
+  const thumbPath = getThumbnailPath(cacheKey);
+
+  if (await fs.pathExists(thumbPath)) {
+    return thumbPath;
+  }
+
+  try {
+    const pngBuffer = await psdThumbnail.rasterizePsdToPngBuffer(fullImagePath);
+    await createThumbnailFromPngBuffer(pngBuffer, thumbPath);
+    return thumbPath;
+  } catch (err) {
+    console.error('[Thumbnailer] PSD convert failed:', fullImagePath, err.message);
+    return getPsdPlaceholderThumbnail();
+  }
+}
+
+/**
+ * Preview lớn cho modal / hover — trả về data URL PNG (base64).
+ */
+async function getPsdPreviewDataUrl(fullImagePath, maxDim = 1280) {
+  try {
+    const pngBuffer = await psdThumbnail.rasterizePsdToPngBuffer(fullImagePath);
+    const out = await sharp(pngBuffer)
+      .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
+      .png()
+      .toBuffer();
+    return `data:image/png;base64,${out.toString('base64')}`;
+  } catch (err) {
+    console.warn('[Thumbnailer] PSD preview data URL failed:', fullImagePath, err.message);
+    const placeholderPath = await getPsdPlaceholderThumbnail();
+    const buf = await fs.readFile(placeholderPath);
+    return `data:image/webp;base64,${buf.toString('base64')}`;
+  }
+}
+
 /**
  * Hàm cốt lõi: trả về đường dẫn thumbnail (tạo mới nếu cần).
  * 
@@ -86,6 +161,10 @@ function getThumbnailPath(cacheKey) {
 async function getOrCreateThumbnail(fullImagePath) {
   if (!fullImagePath) {
     throw new Error('No image path provided');
+  }
+
+  if (psdThumbnail.isPsdFile(fullImagePath)) {
+    return getOrCreatePsdThumbnail(fullImagePath);
   }
 
   const cacheKey = await generateCacheKey(fullImagePath);
@@ -302,11 +381,15 @@ async function pruneCache(maxSizeMB = DEFAULT_MAX_CACHE_SIZE_MB) {
 
 module.exports = {
   getOrCreateThumbnail,
+  getOrCreatePsdThumbnail,
+  getPsdPreviewDataUrl,
+  getPsdPlaceholderThumbnail,
   getThumbnailsForPaths,
   clearThumbnailCache,
   getCacheStats,
   pruneCache,
   enforceMaxCacheSize,
   cleanupOldThumbnails,
+  isPsdFile: psdThumbnail.isPsdFile,
   CACHE_DIR,
 };

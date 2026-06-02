@@ -31,6 +31,19 @@ ipcMain.handle('drive:auto-detect', async () => {
   return found;
 });
 
+/** Ưu tiên ổ người dùng chọn trong UI (drive-letter-input), không quét G: trước */
+ipcMain.handle('drive:resolve-from-letter', async (event, letter) => {
+  const result = await pathResolver.resolveDriveRootFromLetter(letter);
+  if (result.valid) {
+    store.set('driveRoot', result.rootPath);
+  }
+  return result;
+});
+
+ipcMain.handle('drive:list-mounts', async () => {
+  return pathResolver.listAllGoogleDriveRoots();
+});
+
 ipcMain.handle('drive:pick-folder', async (event) => {
   const win = event.sender.getOwnerBrowserWindow();
   const result = await dialog.showOpenDialog(win, {
@@ -109,7 +122,37 @@ ipcMain.handle('drive:resolve-id', async (event, driveRoot, id) => {
 // ==================== THUMBNAILS ====================
 
 ipcMain.handle('thumbnail:get', async (event, fullImagePath) => {
-  return thumbnailer.getOrCreateThumbnail(fullImagePath);
+  const thumbPath = await thumbnailer.getOrCreateThumbnail(fullImagePath);
+  return {
+    thumbPath,
+    isPsd: thumbnailer.isPsdFile(fullImagePath),
+    isPlaceholder: thumbPath && thumbPath.includes('__psd_placeholder__'),
+  };
+});
+
+/** Preview hiển thị trên img — PSD trả data URL PNG, ảnh thường trả đường dẫn file cache */
+ipcMain.handle('image:get-display-source', async (event, fullImagePath) => {
+  if (!fullImagePath) {
+    return { kind: 'error', error: 'No path' };
+  }
+
+  if (thumbnailer.isPsdFile(fullImagePath)) {
+    try {
+      const dataUrl = await thumbnailer.getPsdPreviewDataUrl(fullImagePath);
+      return { kind: 'dataUrl', src: dataUrl, isPsd: true };
+    } catch (e) {
+      const thumbPath = await thumbnailer.getPsdPlaceholderThumbnail();
+      return {
+        kind: 'file',
+        src: thumbPath,
+        isPsd: true,
+        isPlaceholder: true,
+      };
+    }
+  }
+
+  const thumbPath = await thumbnailer.getOrCreateThumbnail(fullImagePath);
+  return { kind: 'file', src: thumbPath, isPsd: false };
 });
 
 ipcMain.handle('thumbnail:get-batch', async (event, imagePaths) => {

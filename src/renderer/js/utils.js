@@ -24,7 +24,7 @@ function showToast(message, type = 'success') {
 
 function isImageFileName(name) {
   const ext = (name || '').split('.').pop().toLowerCase();
-  return ['jpg','jpeg','png','gif','webp','bmp','svg'].includes(ext);
+  return ['jpg','jpeg','png','gif','webp','bmp','svg','psd'].includes(ext);
 }
 
 function downloadImage(url, filename) {
@@ -36,118 +36,82 @@ function downloadImage(url, filename) {
   document.body.removeChild(a);
 }
 
-function openImageModal(url, name) {
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Modal xem ảnh full — fade-in/out, click nền / Esc để đóng.
+ * Chỉ revokeObjectURL với blob: (không dùng với file://).
+ */
+window.previewFullImage = function(url, displayName) {
+  if (!url) return;
+
+  const name = displayName
+    || url.split('/').pop().split('\\').pop()
+    || 'Ảnh';
+
+  const existing = document.querySelector('.image-preview-modal');
+  if (existing) existing.remove();
+
   const modal = document.createElement('div');
-  modal.className = 'fixed inset-0 z-[999] flex items-center justify-center bg-black/85 p-6';
+  modal.className = 'image-preview-modal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
 
-  // Thiết kế modal nhỏ đẹp, không chiếm toàn màn hình
   modal.innerHTML = `
-    <div class="relative w-full max-w-[920px] bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
-      
-      <!-- Header -->
-      <div class="flex items-center justify-between px-5 py-3 border-b border-slate-700 bg-slate-950/60">
-        <div class="flex items-center gap-3 text-white">
-          <i class="fa-solid fa-image text-emerald-400"></i>
-          <span class="font-mono text-sm truncate max-w-[520px]" title="${name}">${name}</span>
-        </div>
-        
-        <div class="flex items-center gap-2">
-          <button class="px-3.5 py-1.5 text-sm bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 rounded-2xl flex items-center gap-2 transition-all" id="btn-download-modal">
-            <i class="fa-solid fa-download"></i>
-            <span class="hidden sm:inline">Tải về</span>
-          </button>
-          
-          <button class="w-9 h-9 flex items-center justify-center text-lg bg-slate-700 hover:bg-slate-600 active:bg-slate-800 rounded-2xl transition-all" id="btn-close-modal" title="Đóng (Esc)">
-            <i class="fa-solid fa-times"></i>
-          </button>
-        </div>
-      </div>
-
-      <!-- Ảnh -->
-      <div class="flex items-center justify-center p-5 bg-[#0b1220]">
-        <img src="${url}" 
-             alt="${name}" 
-             class="max-w-full max-h-[70vh] object-contain rounded-2xl shadow-xl border border-slate-800"
-             style="image-rendering: crisp-edges;">
-      </div>
-    </div>
+    <img class="image-preview-modal__img" src="${url}" alt="${escapeHtml(name)}">
+    <button type="button" class="image-preview-modal__close" aria-label="Đóng">&times;</button>
+    <div class="image-preview-modal__caption">${escapeHtml(name)}</div>
   `;
-  
-  document.body.appendChild(modal);
-  
-  const closeBtn = modal.querySelector('#btn-close-modal');
-  const downloadBtn = modal.querySelector('#btn-download-modal');
-  
-  const closeModal = () => modal.remove();
-  
-  closeBtn.onclick = closeModal;
-  
-  // Click ra ngoài để đóng (trên lớp overlay)
-  modal.onclick = (e) => {
-    if (e.target === modal) closeModal();
+
+  const imgEl = modal.querySelector('.image-preview-modal__img');
+  const closeBtn = modal.querySelector('.image-preview-modal__close');
+
+  const closeModal = () => {
+    if (modal.dataset.closing === 'true') return;
+    modal.dataset.closing = 'true';
+    modal.classList.remove('is-open');
+    modal.classList.add('is-closing');
+
+    setTimeout(() => {
+      modal.remove();
+      if (typeof url === 'string' && url.startsWith('blob:')) {
+        try { URL.revokeObjectURL(url); } catch (e) { /* ignore */ }
+      }
+    }, 300);
   };
-  
-  downloadBtn.onclick = () => downloadImage(url, name);
-  
-  // Hỗ trợ phím Esc
+
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeModal();
+  });
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  imgEl.addEventListener('click', (e) => e.stopPropagation());
+
   const escHandler = (e) => {
     if (e.key === 'Escape') {
       closeModal();
       document.removeEventListener('keydown', escHandler);
     }
   };
-  document.addEventListener('keydown', escHandler, { once: true });
-}
-
-// Expose các hàm modal hữu ích ra global để các script khác (như mapping.js) dễ sử dụng
-window.openImageModal = openImageModal;
-
-// Alias đơn giản để tương thích ngược với code cũ trong mapping.js
-window.previewFullImage = function(url) {
-  const filename = url.split('/').pop().split('\\').pop() || 'Ảnh';
-  
-  // Ưu tiên dùng modal đẹp nếu có
-  if (typeof openImageModal === 'function') {
-    openImageModal(url, filename);
-    return;
-  }
-
-  // Fallback modal nhỏ đẹp (nếu openImageModal chưa load)
-  const modal = document.createElement('div');
-  modal.className = 'fixed inset-0 z-[999] flex items-center justify-center bg-black/85 p-6';
-
-  modal.innerHTML = `
-    <div class="relative w-full max-w-[920px] bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl overflow-hidden">
-      
-      <div class="flex items-center justify-between px-5 py-3 border-b border-slate-700 bg-slate-950/60">
-        <div class="flex items-center gap-3 text-white">
-          <i class="fa-solid fa-image text-emerald-400"></i>
-          <span class="font-mono text-sm truncate max-w-[520px]">${filename}</span>
-        </div>
-        <button class="w-9 h-9 flex items-center justify-center text-xl bg-slate-700 hover:bg-slate-600 rounded-2xl transition-all" id="fb-close">
-          <i class="fa-solid fa-times"></i>
-        </button>
-      </div>
-
-      <div class="p-5 bg-[#0b1220] flex justify-center">
-        <img src="${url}" 
-             class="max-w-full max-h-[70vh] object-contain rounded-2xl shadow-xl border border-slate-800"
-             style="image-rendering: crisp-edges;">
-      </div>
-    </div>
-  `;
+  document.addEventListener('keydown', escHandler);
 
   document.body.appendChild(modal);
 
-  const close = () => modal.remove();
-  modal.querySelector('#fb-close').onclick = close;
-  modal.onclick = (e) => { if (e.target === modal) close(); };
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => modal.classList.add('is-open'));
+  });
+};
 
-  const esc = (e) => {
-    if (e.key === 'Escape') {
-      close();
-      document.removeEventListener('keydown', esc);
-    }
-  };
-  document.addEventListener('keydown', esc, { once: true });
+window.openImageModal = function(url, name) {
+  window.previewFullImage(url, name);
 };

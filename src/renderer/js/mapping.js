@@ -37,16 +37,15 @@ async function mapAllParsedIds() {
     return;
   }
 
-  // Lấy drive root (từ auto-detect hoặc người dùng chọn)
-  let driveRoot = window.currentDriveRoot || await window.electronAPI.getCurrentDriveRoot();
+  // Luôn ưu tiên chữ cái ổ trong #drive-letter-input (không auto-detect G: mặc định)
+  let driveRoot = null;
+  if (typeof window.resolveDriveRootFromUI === 'function') {
+    driveRoot = await window.resolveDriveRootFromUI();
+  }
 
   if (!driveRoot) {
-    // Thử tự động phát hiện hoặc để người dùng chọn
-    driveRoot = await window.pickRootDir();
-    if (!driveRoot) {
-      showToast('Vui lòng chọn thư mục gốc Google Drive', 'error');
-      return;
-    }
+    showToast('Không map được: kiểm tra chữ cái ổ đĩa hoặc bấm "Chọn thư mục gốc"', 'error');
+    return;
   }
 
   window.currentDriveRoot = driveRoot;
@@ -143,6 +142,241 @@ const imageLoadSemaphore = createSemaphore(5);
 // Observer dùng cho lazy loading toàn bộ gallery
 let allPreviewsObserver = null;
 
+// ==================== HIỆU ỨNG HOVER ẢNH (xem docs/hoverImg.md) ====================
+
+let hoverPreviewEl = null;
+let hoverPreviewTimer = null;
+let hoverPreviewHideTimer = null;
+let hoverPreviewActiveCard = null;
+const hoverPointer = { x: 0, y: 0 };
+const HOVER_PREVIEW_DELAY_MS = 320;
+const HOVER_PREVIEW_HIDE_MS = 120;
+
+function escapeHtmlAttr(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
+}
+
+function toFileUrl(fullPath) {
+  if (!fullPath) return '';
+  return 'file://' + fullPath.replace(/\\/g, '/');
+}
+
+function isPsdPath(fullPath) {
+  return /\.psd$/i.test(fullPath || '');
+}
+
+/**
+ * URL có thể hiển thị trên thẻ img (PSD → data URL hoặc thumbnail webp).
+ */
+async function resolveDisplaySrc(fullPath, card) {
+  if (!fullPath) return '';
+
+  if (card && card.dataset.displaySrc) {
+    return card.dataset.displaySrc;
+  }
+
+  if (window.electronAPI && typeof window.electronAPI.getImageDisplaySource === 'function') {
+    try {
+      const result = await window.electronAPI.getImageDisplaySource(fullPath);
+      if (result && result.kind === 'dataUrl' && result.src) {
+        if (card) card.dataset.displaySrc = result.src;
+        return result.src;
+      }
+      if (result && result.kind === 'file' && result.src) {
+        const url = toFileUrl(result.src);
+        if (card) card.dataset.displaySrc = url;
+        return url;
+      }
+    } catch (e) {
+      console.warn('[Display] getImageDisplaySource failed', fullPath, e);
+    }
+  }
+
+  if (isPsdPath(fullPath) && card && card.dataset.thumbSrc) {
+    return card.dataset.thumbSrc;
+  }
+
+  return toFileUrl(fullPath);
+}
+
+function ensureHoverPreviewElement() {
+  if (hoverPreviewEl) return hoverPreviewEl;
+
+  hoverPreviewEl = document.createElement('div');
+  hoverPreviewEl.id = 'image-hover-preview';
+  hoverPreviewEl.setAttribute('aria-hidden', 'true');
+  hoverPreviewEl.innerHTML = `
+    <div class="hover-preview-img-wrap">
+      <img alt="" />
+    </div>
+    <div class="hover-preview-caption"></div>
+  `;
+  document.body.appendChild(hoverPreviewEl);
+  return hoverPreviewEl;
+}
+
+function hideHoverPreview(immediate) {
+  if (hoverPreviewTimer) {
+    clearTimeout(hoverPreviewTimer);
+    hoverPreviewTimer = null;
+  }
+  hoverPreviewActiveCard = null;
+
+  if (!hoverPreviewEl) return;
+
+  const el = hoverPreviewEl;
+  const finish = () => {
+    el.classList.remove('is-visible', 'is-hiding');
+    el.setAttribute('aria-hidden', 'true');
+    const previewImg = el.querySelector('img');
+    if (previewImg) previewImg.removeAttribute('src');
+  };
+
+  if (immediate) {
+    if (hoverPreviewHideTimer) clearTimeout(hoverPreviewHideTimer);
+    finish();
+    return;
+  }
+
+  el.classList.remove('is-visible');
+  el.classList.add('is-hiding');
+  el.setAttribute('aria-hidden', 'true');
+
+  if (hoverPreviewHideTimer) clearTimeout(hoverPreviewHideTimer);
+  hoverPreviewHideTimer = setTimeout(finish, HOVER_PREVIEW_HIDE_MS);
+}
+
+function positionHoverPreview(clientX, clientY) {
+  const el = hoverPreviewEl;
+  if (!el || !el.classList.contains('is-visible')) return;
+
+  const margin = 20;
+  const gap = 14;
+  const rect = el.getBoundingClientRect();
+  const w = rect.width || el.offsetWidth || 280;
+  const h = rect.height || el.offsetHeight || 280;
+
+  let left = clientX + gap;
+  let top = clientY + gap;
+
+  if (left + w > window.innerWidth - margin) {
+    left = clientX - w - gap;
+  }
+  if (top + h > window.innerHeight - margin) {
+    top = clientY - h - gap;
+  }
+
+  left = Math.max(margin, Math.min(left, window.innerWidth - w - margin));
+  top = Math.max(margin, Math.min(top, window.innerHeight - h - margin));
+
+  el.style.left = `${left}px`;
+  el.style.top = `${top}px`;
+}
+
+async function showHoverPreview(card) {
+  const thumbImg = card.querySelector('img');
+  if (!thumbImg || thumbImg.style.display === 'none') return;
+
+  const fullPath = card.dataset.fullPath;
+  const fileName = (fullPath || '').split(/[/\\]/).pop() || thumbImg.alt || 'Ảnh';
+
+  let previewUrl;
+  if (isPsdPath(fullPath)) {
+    previewUrl = await resolveDisplaySrc(fullPath, card);
+  } else {
+    previewUrl = fullPath ? toFileUrl(fullPath) : thumbImg.src;
+  }
+
+  if (!previewUrl) return;
+
+  const el = ensureHoverPreviewElement();
+  const previewImg = el.querySelector('img');
+  const caption = el.querySelector('.hover-preview-caption');
+
+  if (hoverPreviewHideTimer) {
+    clearTimeout(hoverPreviewHideTimer);
+    hoverPreviewHideTimer = null;
+  }
+
+  el.classList.remove('is-hiding');
+  if (caption) caption.textContent = fileName;
+
+  const reveal = () => {
+    if (hoverPreviewActiveCard !== card) return;
+    el.classList.add('is-visible');
+    el.setAttribute('aria-hidden', 'false');
+    requestAnimationFrame(() => {
+      positionHoverPreview(hoverPointer.x, hoverPointer.y);
+    });
+  };
+
+  if (previewImg.src === previewUrl && previewImg.complete) {
+    reveal();
+    return;
+  }
+
+  previewImg.onload = () => {
+    previewImg.onload = null;
+    reveal();
+  };
+  previewImg.onerror = () => {
+    previewImg.onerror = null;
+    previewImg.src = thumbImg.src;
+    reveal();
+  };
+  previewImg.src = previewUrl;
+  previewImg.alt = fileName;
+}
+
+function attachImageCardEffects(card) {
+  if (!card || card.dataset.effectsBound === 'true') return;
+  card.dataset.effectsBound = 'true';
+
+  const fileName = (card.dataset.fullPath || '').split(/[/\\]/).pop() || 'Ảnh';
+
+  card.addEventListener('mouseenter', () => {
+    card.classList.add('is-hovered');
+    if (card.dataset.loaded !== 'true') return;
+
+    if (hoverPreviewTimer) clearTimeout(hoverPreviewTimer);
+    hoverPreviewActiveCard = card;
+
+    hoverPreviewTimer = setTimeout(() => {
+      if (hoverPreviewActiveCard !== card) return;
+      showHoverPreview(card).catch((err) => console.warn('[Hover] preview failed', err));
+    }, HOVER_PREVIEW_DELAY_MS);
+  });
+
+  card.addEventListener('mousemove', (e) => {
+    hoverPointer.x = e.clientX;
+    hoverPointer.y = e.clientY;
+    if (hoverPreviewEl && hoverPreviewEl.classList.contains('is-visible') && hoverPreviewActiveCard === card) {
+      positionHoverPreview(e.clientX, e.clientY);
+    }
+  });
+
+  card.addEventListener('mouseleave', () => {
+    card.classList.remove('is-hovered');
+    if (hoverPreviewActiveCard === card) hideHoverPreview(false);
+  });
+
+  card.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    hideHoverPreview(true);
+
+    const fullPath = card.dataset.fullPath;
+    if (!fullPath) return;
+
+    const displaySrc = await resolveDisplaySrc(fullPath, card);
+    if (typeof window.previewFullImage === 'function' && displaySrc) {
+      window.previewFullImage(displaySrc, fileName);
+    }
+  });
+}
+
 /**
  * RESET TOÀN BỘ GALLERY
  * Được gọi trước mỗi lần "Map tất cả ID" hoặc "Tải lại ảnh".
@@ -160,6 +394,8 @@ function resetAllPreviewsState() {
     allPreviewsObserver.disconnect();
     allPreviewsObserver = null;
   }
+
+  hideHoverPreview();
 
   // Clear any global references that could cause re-use of old data
   if (window.mappedFolders) {
@@ -235,15 +471,18 @@ async function createGalleryForId(item) {
     card.dataset.index = index;
     card.dataset.fullPath = fullPath;   // Lưu đường dẫn để lazy load thumbnail sau này
 
+    const fileName = fullPath.split(/[/\\]/).pop() || 'Ảnh';
+
+    const safeName = escapeHtmlAttr(fileName);
     card.innerHTML = `
       <div class="placeholder" style="width:100%;height:100%;background:#1e2937;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:11px;">
         Đang tải...
       </div>
-      <img style="display:none; width:100%; height:100%; object-fit:cover; border-radius:6px; cursor:pointer;" />
+      <img style="display:none; width:100%; height:100%; object-fit:cover; border-radius:6px; cursor:pointer;" alt="${safeName}" />
+      <div class="image-hover-overlay" title="${safeName}">${safeName}</div>
     `;
 
-    const img = card.querySelector('img');
-    const placeholder = card.querySelector('.placeholder');
+    attachImageCardEffects(card);
 
     fragment.appendChild(card);
   });
@@ -308,20 +547,33 @@ async function loadThumbnailIntoCard(card, fullImagePath) {
 
   await imageLoadSemaphore(async () => {
     try {
-      // Gọi main process để lấy (hoặc tạo mới) thumbnail
-      const thumbPath = await window.electronAPI.getThumbnail(fullImagePath);
+      const thumbResult = await window.electronAPI.getThumbnail(fullImagePath);
+      const thumbPath = typeof thumbResult === 'string' ? thumbResult : thumbResult.thumbPath;
+      const isPsd = typeof thumbResult === 'object' && thumbResult.isPsd;
+      const isPlaceholder = typeof thumbResult === 'object' && thumbResult.isPlaceholder;
 
-      // Trong Electron có thể load file local bằng file:// protocol
-      img.src = 'file://' + thumbPath.replace(/\\/g, '/');
-      img.alt = fullImagePath.split('\\').pop();
+      const thumbUrl = toFileUrl(thumbPath);
+      img.src = thumbUrl;
+      img.alt = fullImagePath.split(/[/\\]/).pop();
 
       img.style.display = 'block';
       placeholder.style.display = 'none';
 
       card.dataset.loaded = 'true';
+      card.dataset.thumbSrc = thumbUrl;
+      if (isPsd) card.dataset.isPsd = 'true';
+      if (isPlaceholder) card.dataset.psdPlaceholder = 'true';
+
+      const title = isPsd
+        ? (isPlaceholder ? 'PSD — không đọc được preview' : 'PSD — click xem preview')
+        : 'Click để xem ảnh gốc';
+      card.setAttribute('title', title);
     } catch (e) {
       if (placeholder) {
-        placeholder.innerHTML = `<span style="color:#f87171;font-size:11px;">Lỗi thumbnail</span>`;
+        const label = isPsdPath(fullImagePath)
+          ? '<span style="color:#fbbf24;font-size:11px;">PSD — lỗi preview</span>'
+          : '<span style="color:#f87171;font-size:11px;">Lỗi thumbnail</span>';
+        placeholder.innerHTML = label;
       }
       console.warn('[Thumbnail] Lỗi khi tải thumbnail cho', fullImagePath, e);
     }

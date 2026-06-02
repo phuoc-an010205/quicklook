@@ -11,6 +11,8 @@ const electronAPI = {
 
   // === Quản lý Drive Root (MỚI trong Phase 2) ===
   autoDetectDrive: () => ipcRenderer.invoke('drive:auto-detect'),
+  resolveDriveFromLetter: (letter) => ipcRenderer.invoke('drive:resolve-from-letter', letter),
+  listDriveMounts: () => ipcRenderer.invoke('drive:list-mounts'),
   pickDriveFolder: () => ipcRenderer.invoke('drive:pick-folder'),
   getCurrentDriveRoot: () => ipcRenderer.invoke('drive:get-current-root'),
   setDriveRoot: (rootPath) => ipcRenderer.invoke('drive:set-root', rootPath),
@@ -24,6 +26,7 @@ const electronAPI = {
 
   // === Thumbnails (phần cốt lõi của Phase 2) ===
   getThumbnail: (fullImagePath) => ipcRenderer.invoke('thumbnail:get', fullImagePath),
+  getImageDisplaySource: (fullImagePath) => ipcRenderer.invoke('image:get-display-source', fullImagePath),
   getThumbnailsBatch: (imagePaths) => ipcRenderer.invoke('thumbnail:get-batch', imagePaths),
   clearThumbnailCache: () => ipcRenderer.invoke('thumbnail:clear-cache'),
 

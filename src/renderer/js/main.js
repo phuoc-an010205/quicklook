@@ -1,7 +1,23 @@
 
 
-window.onload = function() {
+window.onload = async function() {
   console.log('%c[App] Đã sẵn sàng và kết nối các nút thành công!', 'color:#10b981; font-weight:bold;');
+
+  if (typeof window.initDriveLetterFromStore === 'function') {
+    await window.initDriveLetterFromStore();
+  }
+
+  const driveLetterInput = document.getElementById('drive-letter-input');
+  if (driveLetterInput) {
+    driveLetterInput.addEventListener('change', () => {
+      window.currentDriveRoot = null;
+    });
+    driveLetterInput.addEventListener('input', () => {
+      const v = (driveLetterInput.value || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 1);
+      if (driveLetterInput.value !== v) driveLetterInput.value = v;
+      window.currentDriveRoot = null;
+    });
+  }
 
   // 1. Nút Phân tích link
   const btnParseLinks = document.getElementById('btn-parse-links');

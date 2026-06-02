@@ -18,6 +18,8 @@
     "build:internal": "node scripts/build-internal.js"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.0",
+    "ag-psd": "^30.1.1",
     "electron-store": "^8.2.0",
     "fs-extra": "^11.2.0",
     "sharp": "^0.34.5"
