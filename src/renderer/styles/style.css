@@ -524,8 +524,7 @@ tr:hover {
   text-overflow: ellipsis;
 }
 
-.all-previews .image-item .image-name,
-.all-previews .image-item .placeholder {
+.all-previews .image-item .image-name {
   position: absolute;
   bottom: 0;
   left: 0;
@@ -562,4 +561,124 @@ tr:hover {
 .image-grid,
 .all-previews {
   contain: layout style; /* modern containment to reduce reflow surprises */
+}
+
+/* --- PHẦN STYLE LOADER (docs/loadingImg.md) --- */
+.all-previews-wrap {
+  position: relative;
+  min-height: 160px;
+}
+
+.loader-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 999;
+  pointer-events: none;
+}
+
+.loader-container.hidden {
+  display: none !important;
+}
+
+.loading-text {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin: 0;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.loader {
+  width: 160px;
+  height: 185px;
+  position: relative;
+  background: #fff;
+  border-radius: 100px 100px 0 0;
+}
+
+.loader:after {
+  content: "";
+  position: absolute;
+  width: 100px;
+  height: 125px;
+  left: 50%;
+  top: 25px;
+  transform: translateX(-50%);
+  background-image: radial-gradient(circle, #000 48%, transparent 55%),
+    radial-gradient(circle, #000 48%, transparent 55%),
+    radial-gradient(circle, #fff 30%, transparent 45%),
+    radial-gradient(circle, #000 48%, transparent 51%),
+    linear-gradient(#000 20px, transparent 0),
+    linear-gradient(#cfecf9 60px, transparent 0),
+    radial-gradient(circle, #cfecf9 50%, transparent 51%),
+    radial-gradient(circle, #cfecf9 50%, transparent 51%);
+  background-repeat: no-repeat;
+  background-size: 16px 16px, 16px 16px, 10px 10px, 42px 42px, 12px 3px, 50px 25px, 70px 70px, 70px 70px;
+  background-position: 25px 10px, 55px 10px, 36px 44px, 50% 30px, 50% 85px, 50% 50px, 50% 22px, 50% 45px;
+  animation: faceLift 3s linear infinite alternate;
+}
+
+.loader:before {
+  content: "";
+  position: absolute;
+  width: 140%;
+  height: 125px;
+  left: -20%;
+  top: 0;
+  background-image: radial-gradient(circle, #fff 48%, transparent 50%),
+    radial-gradient(circle, #fff 48%, transparent 50%);
+  background-repeat: no-repeat;
+  background-size: 65px 65px;
+  background-position: 0px 12px, 145px 12px;
+  animation: earLift 3s linear infinite alternate;
+}
+
+@keyframes faceLift {
+  0% { transform: translateX(-60%); }
+  100% { transform: translateX(-30%); }
+}
+
+@keyframes earLift {
+  0% { transform: translateX(10px); }
+  100% { transform: translateX(0px); }
+}
+
+.all-previews .image-item .placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1e2937;
+  z-index: 2;
+}
+
+.all-previews .image-item .placeholder-text {
+  color: #64748b;
+  font-size: 11px;
+}
+
+/* Loader trong modal xem ảnh */
+.image-preview-modal .loader-container--modal {
+  position: absolute;
+  z-index: 2;
+}
+
+.image-preview-modal__img.is-loading {
+  opacity: 0;
 }

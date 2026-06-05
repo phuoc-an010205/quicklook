@@ -60,9 +60,15 @@
         </div>
       </div>
 
-      <!-- Automatic full image grid for ALL mapped Drive links -->
-      <div id="all-previews-container" class="all-previews"
-           style="display:flex; flex-direction:column; gap:20px;"></div>
+      <!-- Vùng gallery + loader toàn cục (docs/loadingImg.md) -->
+      <div class="all-previews-wrap">
+        <div id="image-loader" class="loader-container hidden" aria-live="polite" aria-busy="true">
+          <span class="loader" aria-hidden="true"></span>
+          <p class="loading-text">Loading...</p>
+        </div>
+        <div id="all-previews-container" class="all-previews"
+             style="display:flex; flex-direction:column; gap:20px;"></div>
+      </div>
     </section>
 
   </div>

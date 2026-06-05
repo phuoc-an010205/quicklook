@@ -44,6 +44,25 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;');
 }
 
+function showImageLoader(text) {
+  const el = document.getElementById('image-loader');
+  if (!el) return;
+  const label = el.querySelector('.loading-text');
+  if (label && text) label.textContent = text;
+  el.classList.remove('hidden');
+  el.setAttribute('aria-busy', 'true');
+}
+
+function hideImageLoader() {
+  const el = document.getElementById('image-loader');
+  if (!el) return;
+  el.classList.add('hidden');
+  el.setAttribute('aria-busy', 'false');
+}
+
+window.showImageLoader = showImageLoader;
+window.hideImageLoader = hideImageLoader;
+
 /**
  * Modal xem ảnh full — fade-in/out, click nền / Esc để đóng.
  * Chỉ revokeObjectURL với blob: (không dùng với file://).
@@ -64,13 +83,39 @@ window.previewFullImage = function(url, displayName) {
   modal.setAttribute('aria-modal', 'true');
 
   modal.innerHTML = `
-    <img class="image-preview-modal__img" src="${url}" alt="${escapeHtml(name)}">
+    <div class="loader-container loader-container--modal" id="modal-image-loader">
+      <span class="loader" aria-hidden="true"></span>
+      <p class="loading-text">ĐANG TẢI ẢNH...</p>
+    </div>
+    <img class="image-preview-modal__img is-loading" src="${url}" alt="${escapeHtml(name)}">
     <button type="button" class="image-preview-modal__close" aria-label="Đóng">&times;</button>
     <div class="image-preview-modal__caption">${escapeHtml(name)}</div>
   `;
 
   const imgEl = modal.querySelector('.image-preview-modal__img');
+  const modalLoader = modal.querySelector('#modal-image-loader');
   const closeBtn = modal.querySelector('.image-preview-modal__close');
+
+  const hideModalLoader = () => {
+    if (modalLoader) modalLoader.classList.add('hidden');
+    imgEl.classList.remove('is-loading');
+  };
+
+  imgEl.addEventListener('load', () => {
+    hideModalLoader();
+    if (!modal.classList.contains('is-open')) {
+      requestAnimationFrame(() => modal.classList.add('is-open'));
+    }
+  });
+
+  imgEl.addEventListener('error', () => {
+    hideModalLoader();
+    if (modalLoader) {
+      const t = modalLoader.querySelector('.loading-text');
+      if (t) t.textContent = 'KHÔNG TẢI ĐƯỢC ẢNH';
+      modalLoader.classList.remove('hidden');
+    }
+  });
 
   const closeModal = () => {
     if (modal.dataset.closing === 'true') return;
@@ -107,9 +152,18 @@ window.previewFullImage = function(url, displayName) {
 
   document.body.appendChild(modal);
 
-  requestAnimationFrame(() => {
+  if (imgEl.complete && imgEl.naturalWidth > 0) {
+    hideModalLoader();
     requestAnimationFrame(() => modal.classList.add('is-open'));
-  });
+  } else {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!imgEl.classList.contains('is-loading')) {
+          modal.classList.add('is-open');
+        }
+      });
+    });
+  }
 };
 
 window.openImageModal = function(url, name) {
