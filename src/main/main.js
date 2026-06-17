@@ -30,10 +30,10 @@ function createMainWindow() {
   const rendererPath = path.join(__dirname, '../renderer/index.html');
   mainWindow.loadFile(rendererPath);
 
-  // Mở DevTools khi đang phát triển
-  if (!app.isPackaged) {
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
-  }
+  // Mở DevTools khi đang phát triển (tắt để tránh lỗi Autofill.enable spam trong console)
+  // if (!app.isPackaged) {
+  //   mainWindow.webContents.openDevTools({ mode: 'detach' });
+  // }
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
