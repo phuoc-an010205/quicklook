@@ -384,6 +384,13 @@ function createGalleryForId(item) {
   grid.className = 'image-grid';
   grid.dataset.id = item.id;
 
+  // Áp dụng zoom hiện tại (nếu có) cho grid mới (kết hợp yeucau1.md)
+  const wrapEl = document.querySelector('.all-previews-wrap');
+  if (wrapEl) {
+    const curZ = wrapEl.style.getPropertyValue('--zoom') || '1';
+    grid.style.setProperty('--zoom', curZ);
+  }
+
   if (!imagePaths.length) {
     grid.innerHTML = '<div style="padding:30px;color:#64748b;text-align:center;width:100%;font-size:13px;">Không có ảnh</div>';
     wrap.append(header, grid);
@@ -448,6 +455,24 @@ async function loadThumbnailIntoCard(card, fullImagePath) {
   const img = card.querySelector('img');
   if (!placeholder || !img) return;
 
+  // Bắt đầu loader bar + % cho placeholder cá nhân
+  const loader = placeholder.querySelector('.loader');
+  const pctEl = placeholder.querySelector('.pct');
+  if (loader) loader.style.setProperty('--progress', '0%');
+  if (pctEl) pctEl.textContent = '0%';
+
+  let fakeP = 0;
+  const fakeIv = setInterval(() => {
+    if (!placeholder || placeholder.classList.contains('hidden')) {
+      clearInterval(fakeIv);
+      return;
+    }
+    fakeP += Math.random() * 18 + 6;
+    if (fakeP > 92) fakeP = 92;
+    if (loader) loader.style.setProperty('--progress', `${fakeP}%`);
+    if (pctEl) pctEl.textContent = `${Math.floor(fakeP)}%`;
+  }, 90);
+
   await imageLoadSemaphore(async () => {
     try {
       const { thumbPath, isPsd, isPlaceholder } = parseThumbnailResult(
@@ -458,9 +483,16 @@ async function loadThumbnailIntoCard(card, fullImagePath) {
 
       await waitForImageLoad(img, thumbUrl);
 
-      img.style.display = 'block';
-      placeholder.style.display = 'none';
-      placeholder.classList.add('hidden');
+      clearInterval(fakeIv);
+      if (loader) loader.style.setProperty('--progress', '100%');
+      if (pctEl) pctEl.textContent = '100%';
+
+      // Ẩn placeholder sau chút delay để thấy 100%
+      setTimeout(() => {
+        img.style.display = 'block';
+        placeholder.style.display = 'none';
+        placeholder.classList.add('hidden');
+      }, 120);
 
       card.dataset.loaded = 'true';
       card.dataset.thumbSrc = thumbUrl;
@@ -471,6 +503,7 @@ async function loadThumbnailIntoCard(card, fullImagePath) {
         ? (isPlaceholder ? 'PSD — không đọc được preview' : 'PSD — click xem preview')
         : 'Click để xem ảnh gốc';
     } catch (e) {
+      clearInterval(fakeIv);
       markThumbnailError(placeholder, fullImagePath);
       card.dataset.loaded = 'true';
       console.warn('[Thumbnail]', fullImagePath, e);
@@ -500,3 +533,32 @@ window.mapAllParsedIds = mapAllParsedIds;
 window.copyToExplorer = window.copyToExplorer || ((path) => {
   navigator.clipboard.writeText(path).then(() => showToast('Đã copy đường dẫn!', 'success'));
 });
+
+// ==================== ZOOM GALLERY (Ctrl + Wheel) ====================
+// Khi nhấn Ctrl + lăn chuột trên vùng gallery, phóng to/thu nhỏ ảnh theo yêu cầu yeucau1.md
+// Base size 210x210 cho .image-item img
+(function initGalleryZoom() {
+  const wrap = document.querySelector('.all-previews-wrap') || document.getElementById('all-previews-container');
+  if (!wrap) return;
+
+  const grids = () => document.querySelectorAll('.image-grid');
+  const setZoom = (z) => {
+    wrap.style.setProperty('--zoom', z);
+    grids().forEach(g => g.style.setProperty('--zoom', z));
+  };
+
+  let currentZoom = parseFloat(wrap.style.getPropertyValue('--zoom') || '1');
+  setZoom(currentZoom);
+
+  // Lắng nghe trên container để zoom khi Ctrl + wheel
+  const target = document.getElementById('all-previews-container') || wrap;
+  target.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+
+    const delta = e.deltaY < 0 ? 0.1 : -0.1;
+    currentZoom = Math.max(0.4, Math.min(4.0, currentZoom + delta));
+
+    setZoom(currentZoom);
+  }, { passive: false });
+})();

@@ -47,17 +47,54 @@ function escapeHtml(text) {
 function showImageLoader(text) {
   const el = document.getElementById('image-loader');
   if (!el) return;
+
   const label = el.querySelector('.loading-text');
-  if (label && text) label.textContent = text;
+  const baseText = text || 'ĐANG TẢI ẢNH...';
+
+  if (label) {
+    label.innerHTML = `${baseText} <span class="percent">0%</span>`;
+  }
+
   el.classList.remove('hidden');
   el.setAttribute('aria-busy', 'true');
+
+  // Simulate % text for global loading (per yeucau1 + loadingImg)
+  if (el._progressInterval) clearInterval(el._progressInterval);
+
+  let progress = 0;
+  el._progressInterval = setInterval(() => {
+    progress += Math.random() * 15 + 5;
+    if (progress > 95) progress = 95;
+    if (label) {
+      const pct = label.querySelector('.percent');
+      if (pct) pct.textContent = `${Math.floor(progress)}%`;
+    }
+  }, 150);
 }
 
 function hideImageLoader() {
   const el = document.getElementById('image-loader');
   if (!el) return;
-  el.classList.add('hidden');
-  el.setAttribute('aria-busy', 'false');
+
+  const label = el.querySelector('.loading-text');
+
+  // Set to 100%
+  if (label) {
+    const pct = label.querySelector('.percent');
+    if (pct) pct.textContent = '100%';
+  }
+
+  if (el._progressInterval) {
+    clearInterval(el._progressInterval);
+    el._progressInterval = null;
+  }
+
+  // Short delay to see 100%
+  setTimeout(() => {
+    el.classList.add('hidden');
+    el.setAttribute('aria-busy', 'false');
+    if (label) label.innerHTML = 'ĐANG TẢI ẢNH...';
+  }, 300);
 }
 
 window.showImageLoader = showImageLoader;

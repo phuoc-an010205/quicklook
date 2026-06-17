@@ -1,17 +1,44 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 
+process.on('uncaughtException', (err) => {
+  console.error('[Main] UNCAUGHT EXCEPTION:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[Main] UNHANDLED REJECTION:', reason);
+});
+
+// Single instance lock - rất quan trọng để tránh nhiều cửa sổ ẩn hoặc "treo"
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  console.log('[Main] Another instance is running, quitting this one.');
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    console.log('[Main] Second instance detected, focusing existing window.');
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+      mainWindow.show();
+    }
+  });
+}
+
 // Import tất cả handler IPC (đăng ký chúng)
 require('./ipc');
 
 let mainWindow = null;
 
 function createMainWindow() {
+  console.log('[Main] createMainWindow called');
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 860,
     minWidth: 1024,
     minHeight: 720,
+    center: true,
     title: 'QuickLook - Google Drive ID Mapper',
     icon: getIconPath(),
     webPreferences: {
@@ -19,35 +46,79 @@ function createMainWindow() {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
-      // Chúng ta sẽ dần dần expose các API an toàn qua preload + contextBridge
     },
-    show: false, // hiển thị sau khi ready-to-show để UX tốt hơn
+    show: false,
     backgroundColor: '#020617',
-    autoHideMenuBar: true, // cleaner look; we can add a proper menu later
+    autoHideMenuBar: true,
   });
 
-  // Tải renderer (giao diện web đã được làm sạch)
   const rendererPath = path.join(__dirname, '../renderer/index.html');
-  mainWindow.loadFile(rendererPath);
+  console.log('[Main] loadFile path =', rendererPath);
 
-  // Mở DevTools khi đang phát triển (tắt để tránh lỗi Autofill.enable spam trong console)
-  // if (!app.isPackaged) {
-  //   mainWindow.webContents.openDevTools({ mode: 'detach' });
-  // }
+  mainWindow.loadFile(rendererPath)
+    .then(() => {
+      console.log('[Main] loadFile resolved successfully');
+    })
+    .catch((err) => {
+      console.error('[Main] loadFile failed with error:', err);
+    });
+
+  // Robust show logic for Windows
+  const forceShowWindow = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+
+    console.log('[Main] Attempting to show window...');
+
+    if (!mainWindow.isVisible()) {
+      mainWindow.show();
+    }
+
+    mainWindow.center();
+    mainWindow.focus();
+
+    // Windows trick to bring to front reliably
+    if (process.platform === 'win32') {
+      mainWindow.setAlwaysOnTop(true);
+      mainWindow.setAlwaysOnTop(false);
+    }
+
+    console.log('[Main] Window should now be visible');
+  };
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('[Main] did-finish-load');
+    // Small delay to ensure painting
+    setTimeout(forceShowWindow, 100);
+  });
+
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error('[Main] did-fail-load', { errorCode, errorDescription, validatedURL });
+  });
+
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('[Main] render-process-gone', details);
+  });
+
+  // Multiple fallbacks
+  setTimeout(forceShowWindow, 800);
+  setTimeout(forceShowWindow, 2000);
+  setTimeout(forceShowWindow, 5000);
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+    console.log('[Main] ready-to-show event');
+    forceShowWindow();
   });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 
-  // Bảo mật cơ bản: ngăn điều hướng đến URL bên ngoài
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    // Hiện tại chặn tất cả cửa sổ mới. Sau này có thể cho phép một số trường hợp cụ thể.
-    return { action: 'deny' };
-  });
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
+  // For debugging: uncomment to open DevTools automatically in dev
+  // if (!app.isPackaged) {
+  //   mainWindow.webContents.openDevTools({ mode: 'detach' });
+  // }
 }
 
 function getIconPath() {
@@ -67,23 +138,25 @@ function getIconPath() {
 // ==================== APP LIFECYCLE ====================
 
 app.whenReady().then(() => {
+  console.log('[Main] app.whenReady fired - creating window');
+
   createMainWindow();
 
-  // Tự động dọn cache thumbnail khi khởi động (chạy nền, không chặn)
-  // Đây là cách ổn định lâu dài nhất để ngăn cache phình to.
+  // Auto prune (background)
   setTimeout(() => {
-    const { pruneCache } = require('./thumbnailer');
-    pruneCache(1024).catch(err => {
-      console.warn('[Main] Cache prune failed:', err);
-    });
-  }, 8000); // Trì hoãn 8 giây để không làm chậm quá trình khởi động app
-
-  // macOS: tạo lại cửa sổ khi click icon dock và không có cửa sổ nào mở
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow();
+    try {
+      const { pruneCache } = require('./thumbnailer');
+      pruneCache(1024).catch(err => console.warn('[Main] prune failed', err));
+    } catch (e) {
+      console.warn('[Main] prune require failed', e);
     }
+  }, 8000);
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
   });
+}).catch(err => {
+  console.error('[Main] FATAL: app.whenReady rejected', err);
 });
 
 app.on('window-all-closed', () => {
